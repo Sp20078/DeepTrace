@@ -260,7 +260,7 @@ Models are evaluated using standard cross-validation protocols on the datasets l
 |------|------|---------|
 | SAIYAM PATIL | AI/ML 
 | VASADI PRANEETH SAI RAJ | Full-Stack Developer 
-| KONCHADASHANMUKHA SHASHWATH | Frontend & UI/UX
+| KONCHADASHANMUKHA SHASWATH | Frontend & UI/UX
 | ADITYA PANDEY | Backend & Infrastructure
 
 ## 🏅 Hackathon
