@@ -258,18 +258,18 @@ Models are evaluated using standard cross-validation protocols on the datasets l
 
 | Name | Role | Contact |
 |------|------|---------|
-| [SAIYAM PATIL] | AI/ML 
-| [VASADI PRANEETH SAI RAJ] | Full-Stack Developer 
-| [KONCHADASHANMUKHA SHASHWATH] | Frontend & UI/UX
-| [ADITYA PANDEY] | Backend & Infrastructure
+| SAIYAM PATIL | AI/ML 
+| VASADI PRANEETH SAI RAJ | Full-Stack Developer 
+| KONCHADASHANMUKHA SHASHWATH | Frontend & UI/UX
+| ADITYA PANDEY | Backend & Infrastructure
 
 ## 🏅 Hackathon
 
 | Detail | Info |
 |--------|------|
-| **Hackathon** | [DEVJAMS 26'] |
-| **Date** | [29th August] |
-| **Team Name** | [sudo rm -rf] |
+| **Hackathon** | DEVJAMS 26' |
+| **Date** | 29th August |
+| **Team Name** | sudo rm -rf |
 
 
 ---
