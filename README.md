@@ -279,5 +279,5 @@ Models are evaluated using standard cross-validation protocols on the datasets l
 </p>
 
 <p align="center">
-  Made with 🔎 for [HACKATHON NAME]
+
 </p>
