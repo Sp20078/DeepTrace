@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/layout/responsive_wrapper.dart';
 import '../../models/investigation.dart';
@@ -161,31 +159,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
-        _buildSettingsButton(),
       ],
-    );
-  }
-
-  Widget _buildSettingsButton() {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        Navigator.of(context).pushNamed('/settings');
-      },
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: _surfaceElevated,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _cardBorder),
-        ),
-        child: Icon(
-          Icons.settings_rounded,
-          size: 18,
-          color: _textSecondary,
-        ),
-      ),
     );
   }
 

@@ -3,13 +3,12 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/navigation/page_transitions.dart';
 import 'screens/splash/splash_screen.dart';
-import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/main_shell.dart';
 import 'screens/upload/upload_screen.dart';
 import 'screens/analysis/analysis_screen.dart';
 import 'screens/results/results_screen.dart';
 import 'screens/evidence/evidence_screen.dart';
 import 'screens/report/report_screen.dart';
-import 'screens/settings/settings_screen.dart';
 
 class DeepTraceApp extends StatefulWidget {
   const DeepTraceApp({super.key});
@@ -45,7 +44,7 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
                 case '/':
                   return FadeRoute(page: const SplashScreen());
                 case '/dashboard':
-                  return SlideUpRoute(page: const DashboardScreen());
+                  return SlideUpRoute(page: const MainShell());
                 case '/upload':
                   return SlideRightRoute(page: const UploadScreen());
                 case '/analysis':
@@ -56,8 +55,6 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
                   return SlideRightRoute(page: const EvidenceScreen());
                 case '/report':
                   return SlideRightRoute(page: const ReportScreen());
-                case '/settings':
-                  return SlideRightRoute(page: const SettingsScreen());
                 default:
                   return FadeRoute(page: const SplashScreen());
               }
