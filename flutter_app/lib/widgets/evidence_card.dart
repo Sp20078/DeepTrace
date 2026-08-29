@@ -71,6 +71,12 @@ class _EvidenceCardState extends State<EvidenceCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+
     return MouseRegion(
       onEnter: (_) {
         setState(() => _isHovered = true);
@@ -87,12 +93,12 @@ class _EvidenceCardState extends State<EvidenceCard>
           curve: Curves.easeOut,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _isHovered ? AppColors.surfaceElevated : AppColors.card,
+            color: _isHovered ? surfaceElevated : cardColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _isHovered
                   ? _riskColor.withOpacity(0.4)
-                  : AppColors.cardBorder,
+                  : cardBorder,
               width: _isHovered ? 1.5 : 1,
             ),
             boxShadow: [
@@ -155,7 +161,7 @@ class _EvidenceCardState extends State<EvidenceCard>
                     Text(
                       widget.investigation.fileName,
                       style: AppTheme.subtitleMedium.copyWith(
-                        color: AppColors.textPrimary,
+                        color: textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),

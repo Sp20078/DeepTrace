@@ -43,6 +43,46 @@ class AppColors {
   static const Color overlay = Color(0x80000000);
 }
 
+class AppColorsLight {
+  AppColorsLight._();
+
+  // Core
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceElevated = Color(0xFFF1F5F9);
+  static const Color card = Color(0xFFFFFFFF);
+  static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color divider = Color(0xFFE2E8F0);
+
+  // Primary
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryDark = Color(0xFF1D4ED8);
+  static const Color primaryLight = Color(0xFF3B82F6);
+  static const Color primaryGlow = Color(0x1A2563EB);
+
+  // Text
+  static const Color textPrimary = Color(0xFF0F172A);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color textTertiary = Color(0xFF94A3B8);
+  static const Color textMuted = Color(0xFFCBD5E1);
+
+  // Status (same)
+  static const Color highRisk = Color(0xFFDC2626);
+  static const Color highRiskBg = Color(0x1ADC2626);
+  static const Color mediumRisk = Color(0xFFD97706);
+  static const Color mediumRiskBg = Color(0x1AD97706);
+  static const Color lowRisk = Color(0xFF16A34A);
+  static const Color lowRiskBg = Color(0x1A16A34A);
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFD97706);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF2563EB);
+
+  // Accent
+  static const Color scanLine = Color(0x662563EB);
+  static const Color overlay = Color(0x40000000);
+}
+
 class AppTheme {
   AppTheme._();
 
@@ -173,4 +213,60 @@ class AppTheme {
     color: AppColors.textPrimary,
     letterSpacing: -2,
   );
+
+  static ThemeData get lightTheme {
+    final textTheme = GoogleFonts.interTextTheme(
+      ThemeData.light().textTheme,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: AppColorsLight.background,
+      textTheme: textTheme.apply(
+        bodyColor: AppColorsLight.textPrimary,
+        displayColor: AppColorsLight.textPrimary,
+      ),
+      colorScheme: const ColorScheme.light(
+        primary: AppColorsLight.primary,
+        primaryContainer: AppColorsLight.primaryDark,
+        secondary: AppColorsLight.primaryLight,
+        surface: AppColorsLight.surface,
+        error: AppColorsLight.error,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: AppColorsLight.textPrimary,
+        onError: Colors.white,
+      ),
+      cardTheme: CardThemeData(
+        color: AppColorsLight.card,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(
+              color: AppColorsLight.cardBorder, width: 1),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColorsLight.background,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.inter(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: AppColorsLight.textPrimary,
+          letterSpacing: 1.2,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColorsLight.divider,
+        thickness: 1,
+      ),
+    );
+  }
+
+  /// Helper to pick dark or light color based on current brightness
+  static Color color(BuildContext context, Color dark, Color light) {
+    return Theme.of(context).brightness == Brightness.dark ? dark : light;
+  }
 }

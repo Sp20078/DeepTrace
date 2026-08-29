@@ -11,13 +11,22 @@ class UploadScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final padding = ResponsiveWrapper.padding(context);
     final isWide = ResponsiveWrapper.isDesktop(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppColors.background : AppColorsLight.background;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bg,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: AppColors.textSecondary),
+          icon: Icon(Icons.arrow_back_rounded, color: textSecondary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text('Upload Evidence'),
@@ -32,17 +41,11 @@ class UploadScreen extends StatelessWidget {
                 staggerDelay: const Duration(milliseconds: 80),
                 children: [
                   const SizedBox(height: 24),
-
-                  // Description
                   Text(
                     'Select digital media you want to investigate.',
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: AppTheme.bodyLarge.copyWith(color: textSecondary),
                   ),
                   const SizedBox(height: 32),
-
-                  // Media type options
                   isWide
                       ? Row(
                           children: [
@@ -83,35 +86,20 @@ class UploadScreen extends StatelessWidget {
                           ],
                         ),
                   const SizedBox(height: 28),
-
-                  // Upload area
                   _buildDropArea(context),
                   const SizedBox(height: 28),
-
-                  // Supported formats
                   Center(
                     child: Column(
                       children: [
-                        Text(
-                          'Supported formats',
-                          style: AppTheme.labelMedium.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
+                        Text('Supported formats',
+                            style: AppTheme.labelMedium.copyWith(color: textTertiary)),
                         const SizedBox(height: 6),
-                        Text(
-                          'JPG, PNG, MP4, MOV',
-                          style: AppTheme.bodySmall.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                        ),
+                        Text('JPG, PNG, MP4, MOV',
+                            style: AppTheme.bodySmall.copyWith(color: textMuted)),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 32),
-
-                  // Demo option
                   PrimaryButton(
                     label: 'Try Demo Evidence',
                     icon: Icons.science_rounded,
@@ -129,11 +117,16 @@ class UploadScreen extends StatelessWidget {
   }
 
   void _selectDemo(BuildContext context) {
-    Navigator.of(context)
-        .pushReplacementNamed('/analysis', arguments: true);
+    Navigator.of(context).pushReplacementNamed('/analysis', arguments: true);
   }
 
   Widget _buildDropArea(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+
     return GestureDetector(
       onTap: () => _selectDemo(context),
       child: MouseRegion(
@@ -142,10 +135,10 @@ class UploadScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 48),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.primary.withOpacity(0.15),
+              color: primary.withOpacity(0.15),
               width: 2,
               strokeAlign: BorderSide.strokeAlignInside,
             ),
@@ -156,27 +149,20 @@ class UploadScreen extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGlow,
+                  color: primaryGlow,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.cloud_upload_rounded,
                   size: 32,
-                  color: AppColors.primary.withOpacity(0.7),
+                  color: primary.withOpacity(0.7),
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                'Drag & drop or tap to select',
-                style: AppTheme.subtitleMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
+              Text('Drag & drop or tap to select',
+                  style: AppTheme.subtitleMedium.copyWith(color: textSecondary)),
               const SizedBox(height: 8),
-              Text(
-                'Image or video file',
-                style: AppTheme.bodySmall,
-              ),
+              Text('Image or video file', style: AppTheme.bodySmall),
             ],
           ),
         ),
@@ -200,6 +186,13 @@ class _MediaTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -207,9 +200,9 @@ class _MediaTypeCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: cardColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.cardBorder, width: 1),
+            border: Border.all(color: cardBorder, width: 1),
           ),
           child: Row(
             children: [
@@ -217,10 +210,10 @@ class _MediaTypeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGlow,
+                  color: primaryGlow,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.primary, size: 24),
+                child: Icon(icon, color: primary, size: 24),
               ),
               const SizedBox(width: 16),
               Column(
@@ -232,11 +225,7 @@ class _MediaTypeCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: AppColors.textMuted,
-              ),
+              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: textMuted),
             ],
           ),
         ),

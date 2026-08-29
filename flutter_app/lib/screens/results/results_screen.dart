@@ -15,13 +15,18 @@ class ResultsScreen extends StatelessWidget {
     final investigation = MockData.demoInvestigation;
     final padding = ResponsiveWrapper.padding(context);
     final isWide = ResponsiveWrapper.isDesktop(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppColors.background : AppColorsLight.background;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bg,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: AppColors.textSecondary),
+          icon: Icon(Icons.arrow_back_rounded, color: textSecondary),
           onPressed: () =>
               Navigator.of(context).popUntil((route) => route.isFirst),
         ),
@@ -51,10 +56,10 @@ class ResultsScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppColors.highRiskBg,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.highRisk.withOpacity(0.2),
+                    color: highRiskBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: highRisk.withOpacity(0.2),
                       ),
                     ),
                     child: Row(
@@ -63,12 +68,12 @@ class ResultsScreen extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: AppColors.highRisk.withOpacity(0.15),
+                            color: highRisk.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.warning_amber_rounded,
-                            color: AppColors.highRisk,
+                            color: highRisk,
                             size: 20,
                           ),
                         ),
@@ -78,7 +83,7 @@ class ResultsScreen extends StatelessWidget {
                             'Multiple signals associated with digital manipulation were detected.',
                             style: AppTheme.bodyLarge.copyWith(
                               fontSize: 14,
-                              color: AppColors.textPrimary,
+                              color: textPrimary,
                               height: 1.4,
                             ),
                           ),

@@ -54,8 +54,12 @@ class _GlowCardState extends State<GlowCard>
 
   @override
   Widget build(BuildContext context) {
-    final glow = widget.glowColor ?? AppColors.primaryGlow;
-    final border = widget.borderColor ?? AppColors.cardBorder;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final defaultBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final defaultCard = isDark ? AppColors.card : AppColorsLight.card;
+    final glow = widget.glowColor ?? defaultGlow;
+    final border = widget.borderColor ?? defaultBorder;
 
     return MouseRegion(
       onEnter: widget.enableHover
@@ -85,7 +89,7 @@ class _GlowCardState extends State<GlowCard>
             margin: widget.margin,
             padding: widget.padding ?? const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: defaultCard,
               borderRadius: BorderRadius.circular(widget.borderRadius),
               border: Border.all(
                 color: _isHovered

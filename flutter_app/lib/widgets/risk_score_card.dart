@@ -84,6 +84,11 @@ class _RiskScoreCardState extends State<RiskScoreCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final dividerColor = isDark ? AppColors.divider : AppColorsLight.divider;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
     final score = widget.score;
 
     return AnimatedBuilder(
@@ -93,7 +98,7 @@ class _RiskScoreCardState extends State<RiskScoreCard>
           width: double.infinity,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: cardColor,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _riskColor.withOpacity(
@@ -149,7 +154,7 @@ class _RiskScoreCardState extends State<RiskScoreCard>
                       child: CircularProgressIndicator(
                         value: 1,
                         strokeWidth: 8,
-                        color: AppColors.divider,
+                        color: dividerColor,
                       ),
                     ),
                     // Animated progress
@@ -193,7 +198,7 @@ class _RiskScoreCardState extends State<RiskScoreCard>
                             Text(
                               '/ 100',
                               style: AppTheme.bodyMedium.copyWith(
-                                color: AppColors.textTertiary,
+                                color: textTertiary,
                                 fontSize: 14,
                               ),
                             ),
@@ -210,7 +215,7 @@ class _RiskScoreCardState extends State<RiskScoreCard>
               Text(
                 widget.label,
                 style: AppTheme.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+                  color: textSecondary,
                 ),
               ),
             ],

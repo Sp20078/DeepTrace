@@ -14,13 +14,15 @@ class ReportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final investigation = MockData.demoInvestigation;
     final padding = ResponsiveWrapper.padding(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AppColors.background : AppColorsLight.background;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bg,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: AppColors.textSecondary),
+          icon: Icon(Icons.arrow_back_rounded, color: textSecondary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text('Forensic Report'),
@@ -35,20 +37,16 @@ class ReportScreen extends StatelessWidget {
                 staggerDelay: const Duration(milliseconds: 80),
                 children: [
                   const SizedBox(height: 16),
-
-                  // Report header card
-                  _buildReportHeader(investigation),
+                  _buildReportHeader(context, investigation),
                   const SizedBox(height: 28),
-
-                  // Key Findings
                   Row(
                     children: [
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.primary,
+                          color: isDark ? AppColors.primary : AppColorsLight.primary,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -62,18 +60,11 @@ class ReportScreen extends StatelessWidget {
                       child: FindingCard(finding: finding),
                     ),
                   ),
-
                   const SizedBox(height: 28),
-
-                  // Conclusion
-                  _buildConclusion(investigation),
+                  _buildConclusion(context, investigation),
                   const SizedBox(height: 24),
-
-                  // Disclaimer
-                  _buildDisclaimer(),
+                  _buildDisclaimer(context),
                   const SizedBox(height: 28),
-
-                  // Generate Report button
                   PrimaryButton(
                     label: 'Generate Report',
                     icon: Icons.file_download_rounded,
@@ -85,18 +76,13 @@ class ReportScreen extends StatelessWidget {
                               const Icon(Icons.check_circle_rounded,
                                   color: Colors.white, size: 18),
                               const SizedBox(width: 10),
-                              Text(
-                                'Report generated successfully!',
-                                style: AppTheme.bodyMedium
-                                    .copyWith(color: Colors.white),
-                              ),
+                              Text('Report generated successfully!',
+                                  style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
                             ],
                           ),
-                          backgroundColor: AppColors.success,
+                          backgroundColor: isDark ? AppColors.success : AppColorsLight.success,
                           behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           margin: const EdgeInsets.all(16),
                         ),
                       );
@@ -112,95 +98,79 @@ class ReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReportHeader(Investigation investigation) {
+  Widget _buildReportHeader(BuildContext context, Investigation investigation) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.15),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.06),
-            blurRadius: 20,
-            spreadRadius: -4,
-          ),
-        ],
+        border: Border.all(color: primary.withOpacity(0.15)),
+        boxShadow: [BoxShadow(color: primary.withOpacity(0.06), blurRadius: 20, spreadRadius: -4)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title row
           Row(
             children: [
               Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGlow,
+                  color: primaryGlow,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
-                  Icons.description_rounded,
-                  color: AppColors.primary,
-                  size: 22,
-                ),
+                child: Icon(Icons.description_rounded, color: primary, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Forensic Investigation Report',
-                      style: AppTheme.headingSmall.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
+                    Text('Forensic Investigation Report',
+                        style: AppTheme.headingSmall.copyWith(color: primary)),
                     const SizedBox(height: 2),
-                    Text(
-                      'DEEPTRACE Analysis System',
-                      style: AppTheme.bodySmall.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
+                    Text('DEEPTRACE Analysis System',
+                        style: AppTheme.bodySmall.copyWith(color: textMuted)),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
-
-          // Info grid
-          _infoRow('Investigation ID', investigation.id),
-          _infoRow('File', investigation.fileName),
-          _infoRow('Media Type', investigation.mediaType),
-          _infoRow('Analyzed Frames', '${investigation.analyzedFrames}'),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: AppColors.cardBorder),
+          _infoRow('Investigation ID', investigation.id, textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('File', investigation.fileName, textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Media Type', investigation.mediaType, textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Analyzed Frames', '${investigation.analyzedFrames}', textTertiary: textTertiary, textPrimary: textPrimary),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: cardBorder),
           ),
-          _infoRow(
-            'Overall Risk',
-            '${investigation.riskScore} / 100',
-            valueColor: AppColors.highRisk,
-          ),
-          _infoRow(
-            'Assessment',
-            investigation.assessment,
-            valueColor: AppColors.highRisk,
-            isBadge: true,
-          ),
+          _infoRow('Overall Risk', '${investigation.riskScore} / 100',
+              valueColor: highRisk, textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Assessment', investigation.assessment,
+              valueColor: highRisk, isBadge: true, textTertiary: textTertiary,
+              textPrimary: textPrimary, highRiskBg: highRiskBg, highRisk: highRisk),
         ],
       ),
     );
   }
 
   Widget _infoRow(String label, String value,
-      {Color? valueColor, bool isBadge = false}) {
+      {Color? valueColor, bool isBadge = false,
+      required Color textTertiary, required Color textPrimary,
+      Color? highRiskBg, Color? highRisk}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -208,30 +178,22 @@ class ReportScreen extends StatelessWidget {
         children: [
           SizedBox(
             width: 140,
-            child: Text(
-              label,
-              style: AppTheme.bodyMedium.copyWith(
-                color: AppColors.textTertiary,
-                fontSize: 13,
-              ),
-            ),
+            child: Text(label,
+                style: AppTheme.bodyMedium.copyWith(color: textTertiary, fontSize: 13)),
           ),
           Expanded(
             child: isBadge
                 ? Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.highRiskBg,
+                      color: highRiskBg,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: AppColors.highRisk.withOpacity(0.2),
-                      ),
+                      border: Border.all(color: (highRisk ?? valueColor ?? textPrimary).withOpacity(0.2)),
                     ),
                     child: Text(
                       value,
                       style: AppTheme.labelMedium.copyWith(
-                        color: valueColor ?? AppColors.textPrimary,
+                        color: valueColor ?? textPrimary,
                         fontSize: 12,
                         letterSpacing: 0.5,
                       ),
@@ -240,7 +202,7 @@ class ReportScreen extends StatelessWidget {
                 : Text(
                     value,
                     style: AppTheme.bodyLarge.copyWith(
-                      color: valueColor ?? AppColors.textPrimary,
+                      color: valueColor ?? textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -251,36 +213,37 @@ class ReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildConclusion(Investigation investigation) {
+  Widget _buildConclusion(BuildContext context, Investigation investigation) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.gavel_rounded,
-                  color: AppColors.primary, size: 20),
+              Icon(Icons.gavel_rounded, color: primary, size: 20),
               const SizedBox(width: 10),
-              Text(
-                'Conclusion',
-                style: AppTheme.subtitleMedium.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
+              Text('Conclusion',
+                  style: AppTheme.subtitleMedium.copyWith(color: primary)),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             '"${investigation.conclusion}"',
             style: AppTheme.bodyLarge.copyWith(
-              color: AppColors.textPrimary,
+              color: textPrimary,
               fontStyle: FontStyle.italic,
               height: 1.6,
             ),
@@ -290,32 +253,29 @@ class ReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDisclaimer() {
+  Widget _buildDisclaimer(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: surfaceElevated,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: cardBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: AppColors.textMuted,
-            size: 18,
-          ),
+          Icon(Icons.info_outline_rounded, color: textMuted, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               AppConstants.disclaimer,
-              style: AppTheme.bodySmall.copyWith(
-                color: AppColors.textMuted,
-                fontSize: 12,
-                height: 1.4,
-              ),
+              style: AppTheme.bodySmall.copyWith(color: textMuted, fontSize: 12, height: 1.4),
             ),
           ),
         ],

@@ -81,12 +81,27 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     super.dispose();
   }
 
+  // Theme helpers
+  bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
+  Color _bg(BuildContext c) => _isDark(c) ? AppColors.background : AppColorsLight.background;
+  Color _card(BuildContext c) => _isDark(c) ? AppColors.card : AppColorsLight.card;
+  Color _cardBorder(BuildContext c) => _isDark(c) ? AppColors.cardBorder : AppColorsLight.cardBorder;
+  Color _surface(BuildContext c) => _isDark(c) ? AppColors.surface : AppColorsLight.surface;
+  Color _primary(BuildContext c) => _isDark(c) ? AppColors.primary : AppColorsLight.primary;
+  Color _primaryGlow(BuildContext c) => _isDark(c) ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+  Color _success(BuildContext c) => _isDark(c) ? AppColors.success : AppColorsLight.success;
+  Color _divider(BuildContext c) => _isDark(c) ? AppColors.divider : AppColorsLight.divider;
+  Color _textPrimary(BuildContext c) => _isDark(c) ? AppColors.textPrimary : AppColorsLight.textPrimary;
+  Color _textSecondary(BuildContext c) => _isDark(c) ? AppColors.textSecondary : AppColorsLight.textSecondary;
+  Color _textTertiary(BuildContext c) => _isDark(c) ? AppColors.textTertiary : AppColorsLight.textTertiary;
+  Color _textMuted(BuildContext c) => _isDark(c) ? AppColors.textMuted : AppColorsLight.textMuted;
+
   @override
   Widget build(BuildContext context) {
     final padding = ResponsiveWrapper.padding(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _bg(context),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -97,57 +112,21 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 32),
-
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isComplete
-                              ? AppColors.success
-                              : AppColors.primary,
-                          boxShadow: [
-                            BoxShadow(
-                              color: (_isComplete
-                                      ? AppColors.success
-                                      : AppColors.primary)
-                                  .withOpacity(0.4),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text('Analyzing Evidence', style: AppTheme.headingMedium),
-                    ],
-                  ),
+                  _buildHeader(context),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.only(left: 20),
                     child: Text(
                       'suspect_video.mp4',
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
+                      style: AppTheme.bodyMedium.copyWith(color: _textTertiary(context)),
                     ),
                   ),
-
                   const SizedBox(height: 28),
-
-                  // Media preview with scan
-                  _buildMediaPreview(),
+                  _buildMediaPreview(context),
                   const SizedBox(height: 28),
-
-                  // Progress
-                  _buildProgressSection(),
+                  _buildProgressSection(context),
                   const SizedBox(height: 28),
-
-                  // Checklist in a card
-                  _buildChecklistCard(),
+                  _buildChecklistCard(context),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -158,32 +137,57 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  Widget _buildMediaPreview() {
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      children: [
+        AnimatedBuilder(
+          animation: _scanController,
+          builder: (context, child) {
+            return Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isComplete ? _success(context) : _primary(context),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isComplete ? _success(context) : _primary(context))
+                        .withOpacity(0.4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 12),
+        Text('Analyzing Evidence', style: AppTheme.headingMedium),
+      ],
+    );
+  }
+
+  Widget _buildMediaPreview(BuildContext context) {
+    final p = _primary(context);
+    final s = _surface(context);
+    final cb = _cardBorder(context);
+    final tm = _textMuted(context);
+
     return Container(
       width: double.infinity,
       height: 200,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: s,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder, width: 1),
+        border: Border.all(color: cb, width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Grid background
-            CustomPaint(
-              size: Size.infinite,
-              painter: _AnalysisGridPainter(),
-            ),
-
-            // Placeholder icon
-            Icon(
-              Icons.videocam_rounded,
-              size: 48,
-              color: AppColors.textMuted.withOpacity(0.4),
-            ),
+            CustomPaint(size: Size.infinite, painter: _AnalysisGridPainter(color: p)),
+            Icon(Icons.videocam_rounded, size: 48, color: tm.withOpacity(0.4)),
 
             // Scan line
             AnimatedBuilder(
@@ -197,13 +201,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     offset: Offset(0, 200 * _scanController.value),
                     child: Container(
                       height: 2,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            AppColors.primary,
-                            Colors.transparent,
-                          ],
+                          colors: [Colors.transparent, p, Colors.transparent],
                         ),
                       ),
                     ),
@@ -221,18 +221,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   left: 0,
                   right: 0,
                   child: Transform.translate(
-                    offset: Offset(
-                        0, 200 * _scanController.value - 20),
+                    offset: Offset(0, 200 * _scanController.value - 20),
                     child: Container(
                       height: 20,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            AppColors.primary.withOpacity(0.08),
-                          ],
+                          colors: [Colors.transparent, p.withOpacity(0.08)],
                         ),
                       ),
                     ),
@@ -241,37 +237,24 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               },
             ),
 
-            // Corner brackets
-            Positioned(top: 10, left: 10, child: _cornerBracket()),
-            Positioned(
-                top: 10,
-                right: 10,
-                child: _cornerBracket(mirror: true)),
-            Positioned(
-                bottom: 10,
-                left: 10,
-                child: _cornerBracket(flip: true)),
-            Positioned(
-                bottom: 10,
-                right: 10,
-                child: _cornerBracket(mirror: true, flip: true)),
+            Positioned(top: 10, left: 10, child: _cornerBracket(context)),
+            Positioned(top: 10, right: 10, child: _cornerBracket(context, mirror: true)),
+            Positioned(bottom: 10, left: 10, child: _cornerBracket(context, flip: true)),
+            Positioned(bottom: 10, right: 10, child: _cornerBracket(context, mirror: true, flip: true)),
 
-            // "ANALYZING" / "COMPLETE" badge
+            // Status badge
             Positioned(
               top: 12,
               right: 12,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _isComplete
-                      ? AppColors.success.withOpacity(0.15)
-                      : AppColors.primaryGlow,
+                  color: _isComplete ? _success(context).withOpacity(0.15) : _primaryGlow(context),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: _isComplete
-                        ? AppColors.success.withOpacity(0.3)
-                        : AppColors.primary.withOpacity(0.3),
+                        ? _success(context).withOpacity(0.3)
+                        : p.withOpacity(0.3),
                   ),
                 ),
                 child: Row(
@@ -281,21 +264,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       SizedBox(
                         width: 10,
                         height: 10,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: p),
                       )
                     else
-                      Icon(Icons.check_rounded,
-                          size: 12, color: AppColors.success),
+                      Icon(Icons.check_rounded, size: 12, color: _success(context)),
                     const SizedBox(width: 6),
                     Text(
                       _isComplete ? 'COMPLETE' : 'ANALYZING',
                       style: AppTheme.labelMedium.copyWith(
-                        color: _isComplete
-                            ? AppColors.success
-                            : AppColors.primary,
+                        color: _isComplete ? _success(context) : p,
                         fontSize: 10,
                         letterSpacing: 1,
                       ),
@@ -310,37 +287,36 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  Widget _cornerBracket({bool mirror = false, bool flip = false}) {
+  Widget _cornerBracket(BuildContext context, {bool mirror = false, bool flip = false}) {
+    final p = _primary(context);
     return Container(
       width: 20,
       height: 20,
       decoration: BoxDecoration(
         border: Border(
-          top: !flip
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          bottom: flip
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          left: !mirror
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          right: mirror
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
+          top: !flip ? BorderSide(color: p, width: 1.5) : BorderSide.none,
+          bottom: flip ? BorderSide(color: p, width: 1.5) : BorderSide.none,
+          left: !mirror ? BorderSide(color: p, width: 1.5) : BorderSide.none,
+          right: mirror ? BorderSide(color: p, width: 1.5) : BorderSide.none,
         ),
       ),
     );
   }
 
-  Widget _buildProgressSection() {
+  Widget _buildProgressSection(BuildContext context) {
     final percentage = (_progress * 100).round();
+    final p = _primary(context);
+    final s = _success(context);
+    final pg = _primaryGlow(context);
+    final d = _divider(context);
+    final cb = _cardBorder(context);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: _card(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: cb),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,25 +324,18 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _isComplete ? 'Analysis Complete' : 'Analyzing…',
-                style: AppTheme.subtitleMedium,
-              ),
+              Text(_isComplete ? 'Analysis Complete' : 'Analyzing…',
+                  style: AppTheme.subtitleMedium),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isComplete
-                      ? AppColors.success.withOpacity(0.1)
-                      : AppColors.primaryGlow,
+                  color: _isComplete ? s.withOpacity(0.1) : pg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '$percentage%',
                   style: AppTheme.labelMedium.copyWith(
-                    color: _isComplete
-                        ? AppColors.success
-                        : AppColors.primary,
+                    color: _isComplete ? s : p,
                     fontSize: 12,
                   ),
                 ),
@@ -378,10 +347,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: _progress,
-              backgroundColor: AppColors.divider,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _isComplete ? AppColors.success : AppColors.primary,
-              ),
+              backgroundColor: d,
+              valueColor: AlwaysStoppedAnimation<Color>(_isComplete ? s : p),
               minHeight: 8,
             ),
           ),
@@ -390,13 +357,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  Widget _buildChecklistCard() {
+  Widget _buildChecklistCard(BuildContext context) {
+    final cb = _cardBorder(context);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: _card(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: cb),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,57 +382,47 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     final step = _steps[index];
     final bool isDone = index < _currentStep;
     final bool isCurrent = index == _currentStep && !_isComplete;
+    final p = _primary(context);
+    final s = _success(context);
+    final pg = _primaryGlow(context);
+    final tp = _textPrimary(context);
+    final ts = _textSecondary(context);
+    final tm = _textMuted(context);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: isCurrent
-            ? AppColors.primaryGlow.withOpacity(0.3)
-            : Colors.transparent,
+        color: isCurrent ? pg.withOpacity(0.3) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
       margin: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
           if (isDone)
-            Icon(Icons.check_circle_rounded,
-                color: AppColors.success, size: 20)
+            Icon(Icons.check_circle_rounded, color: s, size: 20)
           else if (isCurrent)
             SizedBox(
               width: 20,
               height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2, color: p),
             )
           else
-            Icon(Icons.radio_button_unchecked_rounded,
-                color: AppColors.textMuted, size: 20),
-
+            Icon(Icons.radio_button_unchecked_rounded, color: tm, size: 20),
           const SizedBox(width: 14),
-
           Expanded(
             child: Text(
               step.label,
               style: AppTheme.bodyLarge.copyWith(
                 fontSize: 15,
-                color: isDone
-                    ? AppColors.textSecondary
-                    : isCurrent
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                decoration:
-                    isDone ? TextDecoration.lineThrough : null,
-                decorationColor: AppColors.textMuted,
+                color: isDone ? ts : isCurrent ? tp : tm,
+                decoration: isDone ? TextDecoration.lineThrough : null,
+                decorationColor: tm,
               ),
             ),
           ),
-
           if (isDone)
-            Icon(Icons.check_rounded,
-                color: AppColors.success, size: 16),
+            Icon(Icons.check_rounded, color: s, size: 16),
         ],
       ),
     );
@@ -476,10 +435,13 @@ class _AnalysisStep {
 }
 
 class _AnalysisGridPainter extends CustomPainter {
+  final Color color;
+  _AnalysisGridPainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.primary.withOpacity(0.03)
+      ..color = color.withOpacity(0.03)
       ..strokeWidth = 0.5;
 
     const spacing = 30.0;

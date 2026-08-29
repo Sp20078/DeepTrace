@@ -48,10 +48,13 @@ class _PrimaryButtonState extends State<PrimaryButton>
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = widget.isOutlined ? Colors.transparent : AppColors.primary;
-    final fgColor = widget.isOutlined ? AppColors.primary : Colors.white;
-    final borderColor =
-        widget.isOutlined ? AppColors.primary : Colors.transparent;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final primaryDark = isDark ? AppColors.primaryDark : AppColorsLight.primaryDark;
+    final primaryLight = isDark ? AppColors.primaryLight : AppColorsLight.primaryLight;
+    final bgColor = widget.isOutlined ? Colors.transparent : primary;
+    final fgColor = widget.isOutlined ? primary : Colors.white;
+    final borderColor = widget.isOutlined ? primary : Colors.transparent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -85,26 +88,22 @@ class _PrimaryButtonState extends State<PrimaryButton>
               horizontal: widget.isSmall ? 16 : 24,
             ),
             decoration: BoxDecoration(
-              color: _isHovered && !widget.isOutlined
-                  ? AppColors.primaryDark
-                  : bgColor,
+              color: _isHovered && !widget.isOutlined ? primaryDark : bgColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _isHovered
-                    ? AppColors.primaryLight
-                    : borderColor,
+                color: _isHovered ? primaryLight : borderColor,
                 width: widget.isOutlined ? 1.5 : 0,
               ),
               boxShadow: [
                 if (_isHovered && !widget.isOutlined)
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.35),
+                    color: primary.withOpacity(0.35),
                     blurRadius: 16,
                     spreadRadius: -2,
                   ),
                 if (_isPressed && !widget.isOutlined)
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.5),
+                    color: primary.withOpacity(0.5),
                     blurRadius: 24,
                     spreadRadius: 0,
                   ),

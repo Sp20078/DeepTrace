@@ -17,8 +17,24 @@ class _FindingCardState extends State<FindingCard> {
   Color get _accentColor =>
       widget.finding.isCritical ? AppColors.highRisk : AppColors.primary;
 
+  Color _accent(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return widget.finding.isCritical
+        ? (isDark ? AppColors.highRisk : AppColorsLight.highRisk)
+        : (isDark ? AppColors.primary : AppColorsLight.primary);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final primaryColor = isDark ? AppColors.primary : AppColorsLight.primary;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -26,14 +42,14 @@ class _FindingCardState extends State<FindingCard> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: _isHovered ? AppColors.surfaceElevated : AppColors.card,
+          color: _isHovered ? surfaceElevated : cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _isHovered
                 ? _accentColor.withOpacity(0.4)
                 : widget.finding.isCritical
-                    ? AppColors.highRisk.withOpacity(0.2)
-                    : AppColors.cardBorder,
+                    ? highRisk.withOpacity(0.2)
+                    : cardBorder,
             width: 1,
           ),
           boxShadow: [
@@ -72,13 +88,13 @@ class _FindingCardState extends State<FindingCard> {
               height: 28,
               decoration: BoxDecoration(
                 color: widget.finding.isCritical
-                    ? AppColors.highRiskBg
-                    : AppColors.surfaceElevated,
+                    ? highRiskBg
+                    : surfaceElevated,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: widget.finding.isCritical
-                      ? AppColors.highRisk.withOpacity(0.2)
-                      : AppColors.cardBorder,
+                      ? highRisk.withOpacity(0.2)
+                      : cardBorder,
                 ),
               ),
               child: Center(
@@ -86,8 +102,8 @@ class _FindingCardState extends State<FindingCard> {
                   '${widget.finding.number}',
                   style: AppTheme.labelMedium.copyWith(
                     color: widget.finding.isCritical
-                        ? AppColors.highRisk
-                        : AppColors.textSecondary,
+                        ? highRisk
+                        : textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -112,16 +128,16 @@ class _FindingCardState extends State<FindingCard> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.highRiskBg,
+                  color: highRiskBg,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: AppColors.highRisk.withOpacity(0.2),
+                    color: highRisk.withOpacity(0.2),
                   ),
                 ),
                 child: Text(
                   'CRITICAL',
                   style: AppTheme.labelMedium.copyWith(
-                    color: AppColors.highRisk,
+                    color: highRisk,
                     fontSize: 9,
                     letterSpacing: 0.8,
                   ),

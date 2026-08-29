@@ -32,15 +32,25 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final dividerColor = isDark ? AppColors.divider : AppColorsLight.divider;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
         return Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder, width: 1),
+            border: Border.all(color: cardBorder, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +62,7 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
                     height: 8,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary,
+                      color: primary,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -76,7 +86,7 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
                           child: Container(
                             height: 3,
                             decoration: BoxDecoration(
-                              color: AppColors.divider,
+                              color: dividerColor,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -90,17 +100,17 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
                           child: Container(
                             height: 3,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [
-                                  AppColors.primary,
-                                  AppColors.highRisk,
+                                  primary,
+                                  highRisk,
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(2),
                               boxShadow: [
                                 BoxShadow(
                                   color:
-                                      AppColors.highRisk.withOpacity(0.3),
+                                      highRisk.withOpacity(0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -136,6 +146,11 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
   Widget _buildMarker(SuspiciousTimestamp ts) {
     final isAnomaly = ts.isHighAnomaly;
     final anomalyPulse = _pulseController.value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highRiskColor = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBgColor = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final textTertiaryColor = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final textMutedColor = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
 
     return Column(
       children: [
@@ -143,7 +158,7 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
         Text(
           ts.time,
           style: AppTheme.bodySmall.copyWith(
-            color: isAnomaly ? AppColors.highRisk : AppColors.textTertiary,
+            color: isAnomaly ? highRiskColor : textTertiaryColor,
             fontSize: 11,
             fontWeight:
                 isAnomaly ? FontWeight.w700 : FontWeight.w400,
@@ -157,12 +172,12 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
           width: isAnomaly ? 16 : 8,
           height: isAnomaly ? 16 : 8,
           decoration: BoxDecoration(
-            color: isAnomaly ? AppColors.highRisk : AppColors.textTertiary,
+            color: isAnomaly ? highRiskColor : textTertiaryColor,
             shape: BoxShape.circle,
             boxShadow: isAnomaly
                 ? [
                     BoxShadow(
-                      color: AppColors.highRisk.withOpacity(
+                      color: highRiskColor.withOpacity(
                         0.3 + anomalyPulse * 0.3,
                       ),
                       blurRadius: 8 + anomalyPulse * 6,
@@ -183,10 +198,10 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
             ),
             decoration: isAnomaly
                 ? BoxDecoration(
-                    color: AppColors.highRiskBg,
+                    color: highRiskBgColor,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: AppColors.highRisk.withOpacity(0.2),
+                      color: highRiskColor.withOpacity(0.2),
                     ),
                   )
                 : null,
@@ -194,8 +209,8 @@ class _InvestigationTimelineState extends State<InvestigationTimeline>
               ts.label,
               style: AppTheme.bodySmall.copyWith(
                 color: isAnomaly
-                    ? AppColors.highRisk
-                    : AppColors.textMuted,
+                    ? highRiskColor
+                    : textMutedColor,
                 fontSize: 10,
                 fontWeight: isAnomaly
                     ? FontWeight.w600

@@ -49,6 +49,13 @@ class _AnalysisMetricCardState extends State<AnalysisMetricCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
+    final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final dividerColor = isDark ? AppColors.divider : AppColorsLight.divider;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+
     return MouseRegion(
       onEnter: (_) {
         setState(() => _isHovered = true);
@@ -62,12 +69,12 @@ class _AnalysisMetricCardState extends State<AnalysisMetricCard>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: _isHovered ? AppColors.surfaceElevated : AppColors.card,
+          color: _isHovered ? surfaceElevated : cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _isHovered
                 ? _barColor.withOpacity(0.35)
-                : AppColors.cardBorder,
+                : cardBorder,
             width: 1,
           ),
           boxShadow: [
@@ -135,7 +142,7 @@ class _AnalysisMetricCardState extends State<AnalysisMetricCard>
                 builder: (context, child) {
                   return LinearProgressIndicator(
                     value: _fillController.value * widget.metric.score / 100,
-                    backgroundColor: AppColors.divider,
+                    backgroundColor: dividerColor,
                     valueColor: AlwaysStoppedAnimation<Color>(_barColor),
                     minHeight: 6,
                   );
@@ -148,7 +155,7 @@ class _AnalysisMetricCardState extends State<AnalysisMetricCard>
             Text(
               widget.metric.description,
               style: AppTheme.bodySmall.copyWith(
-                color: AppColors.textSecondary,
+                color: textSecondary,
                 fontSize: 13,
                 height: 1.4,
               ),

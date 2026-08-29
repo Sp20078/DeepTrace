@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/layout/responsive_wrapper.dart';
 import '../../models/investigation.dart';
@@ -29,7 +31,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 3000),
     )..repeat(reverse: true);
 
-    // Stagger content appearance
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _showContent = true);
     });
@@ -41,13 +42,36 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
+  // Theme-aware color helpers
+  bool get _isDark =>
+      Theme.of(context).brightness == Brightness.dark;
+  Color get _bg =>
+      _isDark ? AppColors.background : AppColorsLight.background;
+  Color get _surface => _isDark ? AppColors.surface : AppColorsLight.surface;
+  Color get _surfaceElevated =>
+      _isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+  Color get _card => _isDark ? AppColors.card : AppColorsLight.card;
+  Color get _cardBorder =>
+      _isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+  Color get _primary => _isDark ? AppColors.primary : AppColorsLight.primary;
+  Color get _primaryGlow =>
+      _isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+  Color get _textPrimary =>
+      _isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+  Color get _textSecondary =>
+      _isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+  Color get _textTertiary =>
+      _isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+  Color get _textMuted =>
+      _isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+
   @override
   Widget build(BuildContext context) {
     final padding = ResponsiveWrapper.padding(context);
     final isWide = ResponsiveWrapper.isDesktop(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _bg,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -72,7 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Text(
                         AppConstants.disclaimer,
                         style: AppTheme.bodySmall.copyWith(
-                          color: AppColors.textMuted,
+                          color: _textMuted,
                           fontSize: 11,
                         ),
                         textAlign: TextAlign.center,
@@ -91,7 +115,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildHeader() {
     return Row(
       children: [
-        // Animated pulsing dot
         AnimatedBuilder(
           animation: _heroPulseController,
           builder: (context, child) {
@@ -100,10 +123,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               height: 10,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary,
+                color: _primary,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(
+                    color: _primary.withOpacity(
                       0.3 + _heroPulseController.value * 0.3,
                     ),
                     blurRadius: 8 + _heroPulseController.value * 4,
@@ -115,52 +138,70 @@ class _DashboardScreenState extends State<DashboardScreen>
           },
         ),
         const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppConstants.appName,
-              style: AppTheme.monospace.copyWith(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 3,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppConstants.appName,
+                style: AppTheme.monospace.copyWith(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              AppConstants.appSubtitle,
-              style: AppTheme.bodySmall.copyWith(
-                color: AppColors.textTertiary,
-                letterSpacing: 0.5,
+              const SizedBox(height: 2),
+              Text(
+                AppConstants.appSubtitle,
+                style: AppTheme.bodySmall.copyWith(
+                  color: _textTertiary,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        _buildSettingsButton(),
       ],
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        Navigator.of(context).pushNamed('/settings');
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: _surfaceElevated,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _cardBorder),
+        ),
+        child: Icon(
+          Icons.settings_rounded,
+          size: 18,
+          color: _textSecondary,
+        ),
+      ),
     );
   }
 
   Widget _buildHeroSection(BuildContext context, bool isWide) {
     return GlowCard(
-      glowColor: AppColors.primary.withOpacity(0.15),
-      borderColor: AppColors.primary.withOpacity(0.15),
+      glowColor: _primary.withOpacity(0.15),
+      borderColor: _primary.withOpacity(0.15),
       borderRadius: 18,
       padding: EdgeInsets.all(isWide ? 36 : 28),
       child: isWide
           ? Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left: text + buttons
-                Expanded(
-                  flex: 3,
-                  child: _buildHeroContent(context),
-                ),
+                Expanded(flex: 3, child: _buildHeroContent(context)),
                 const SizedBox(width: 40),
-                // Right: visual element
-                Expanded(
-                  flex: 2,
-                  child: _buildHeroVisual(),
-                ),
+                Expanded(flex: 2, child: _buildHeroVisual()),
               ],
             )
           : _buildHeroContent(context),
@@ -171,15 +212,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Investigate suspicious media',
-          style: AppTheme.headingMedium,
-        ),
+        Text('Investigate suspicious media', style: AppTheme.headingMedium),
         const SizedBox(height: 12),
         Text(
           'Upload an image or video and analyze its authenticity using AI-powered forensic signals.',
           style: AppTheme.bodyLarge.copyWith(
-            color: AppColors.textSecondary,
+            color: _textSecondary,
             height: 1.6,
           ),
         ),
@@ -187,26 +225,21 @@ class _DashboardScreenState extends State<DashboardScreen>
         PrimaryButton(
           label: 'Upload Evidence',
           icon: Icons.add_rounded,
-          onPressed: () {
-            Navigator.of(context).pushNamed('/upload');
-          },
+          onPressed: () => Navigator.of(context).pushNamed('/upload'),
         ),
         const SizedBox(height: 14),
         PrimaryButton(
           label: 'Try Demo Investigation',
           icon: Icons.science_rounded,
           isOutlined: true,
-          onPressed: () {
-            Navigator.of(context).pushNamed('/analysis', arguments: true);
-          },
+          onPressed: () =>
+              Navigator.of(context).pushNamed('/analysis', arguments: true),
         ),
         const SizedBox(height: 22),
         Row(
           children: [
-            Text(
-              'Supported: ',
-              style: AppTheme.bodySmall.copyWith(color: AppColors.textMuted),
-            ),
+            Text('Supported: ',
+                style: AppTheme.bodySmall.copyWith(color: _textMuted)),
             _formatChip(Icons.image_rounded, 'Images'),
             const SizedBox(width: 8),
             _formatChip(Icons.videocam_rounded, 'Videos'),
@@ -223,10 +256,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         return Container(
           height: 180,
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: _surface,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.primary.withOpacity(
+              color: _primary.withOpacity(
                 0.08 + _heroPulseController.value * 0.08,
               ),
             ),
@@ -234,68 +267,30 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Concentric circles
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.12),
-                  ),
-                ),
-              ),
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.18),
-                  ),
-                ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primary.withOpacity(0.25),
-                  ),
-                ),
-              ),
-              // Center icon
-              Icon(
-                Icons.shield_rounded,
-                size: 28,
-                color: AppColors.primary.withOpacity(0.5),
-              ),
-              // Corner brackets
+              _circle(100, 0.12),
+              _circle(70, 0.18),
+              _circle(40, 0.25),
+              Icon(Icons.shield_rounded, size: 28, color: _primary.withOpacity(0.5)),
+              Positioned(top: 12, left: 12, child: _cornerBracket()),
+              Positioned(top: 12, right: 12, child: _cornerBracket(mirror: true)),
+              Positioned(bottom: 12, left: 12, child: _cornerBracket(flip: true)),
               Positioned(
-                top: 12,
-                left: 12,
-                child: _cornerBracket(),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: _cornerBracket(mirror: true),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: _cornerBracket(flip: true),
-              ),
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: _cornerBracket(mirror: true, flip: true),
-              ),
+                  bottom: 12, right: 12, child: _cornerBracket(mirror: true, flip: true)),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _circle(double size, double opacity) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: _primary.withOpacity(opacity)),
+      ),
     );
   }
 
@@ -305,18 +300,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       height: 18,
       decoration: BoxDecoration(
         border: Border(
-          top: !flip
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          bottom: flip
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          left: !mirror
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
-          right: mirror
-              ? const BorderSide(color: AppColors.primary, width: 1.5)
-              : BorderSide.none,
+          top: !flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          bottom: flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          left:
+              !mirror ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          right:
+              mirror ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
         ),
       ),
     );
@@ -326,22 +315,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+        color: _surfaceElevated,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.cardBorder, width: 0.5),
+        border: Border.all(color: _cardBorder, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.textTertiary),
+          Icon(icon, size: 14, color: _textTertiary),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: AppTheme.bodySmall.copyWith(
-              color: AppColors.textTertiary,
-              fontSize: 11,
-            ),
-          ),
+          Text(label,
+              style: AppTheme.bodySmall
+                  .copyWith(color: _textTertiary, fontSize: 11)),
         ],
       ),
     );
@@ -372,11 +357,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         if (i < steps.length - 1)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: AppColors.textMuted.withOpacity(0.5),
-                            ),
+                            child: Icon(Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: _textMuted.withOpacity(0.5)),
                           ),
                       ],
                     ],
@@ -406,9 +389,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: _card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(color: _cardBorder),
         ),
         child: Column(
           children: [
@@ -419,10 +402,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGlow,
+                    color: _primaryGlow,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(step.$2, color: AppColors.primary, size: 22),
+                  child: Icon(step.$2, color: _primary, size: 22),
                 ),
                 Positioned(
                   top: -4,
@@ -431,7 +414,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: _primary,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -452,7 +435,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             Text(
               step.$1,
               style: AppTheme.bodySmall.copyWith(
-                color: AppColors.textSecondary,
+                color: _textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -475,9 +458,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: EvidenceCard(
               investigation: inv,
-              onTap: () {
-                Navigator.of(context).pushNamed('/results');
-              },
+              onTap: () => Navigator.of(context).pushNamed('/results'),
             ),
           ),
         ),
