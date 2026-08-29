@@ -2,9 +2,10 @@
 # =========================================
 # Phase 1: FastAPI server basics
 # Phase 2: File upload support (python-multipart)
-# Phase 3: Analysis endpoint (mock pipeline)
+# Phase 3: Analysis endpoint (real pipeline)
 # OpenCV/Media: opencv-python + numpy for media reading & processing
 # AI/ML: PyTorch + torchvision for deepfake detection
+# Model: EfficientNet-B0 (FaceForensics++ C23) - auto-downloaded on first run
 
 fastapi==0.115.0
 uvicorn[standard]==0.30.0

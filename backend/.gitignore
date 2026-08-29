@@ -15,7 +15,8 @@ __pycache__/
 # Uploaded files and extracted frames
 uploads/
 
-# Model weights (downloaded by torchvision automatically)
+# Model weights (downloaded automatically on first run)
+model_weights/
 models/
 *.pth
 *.pt

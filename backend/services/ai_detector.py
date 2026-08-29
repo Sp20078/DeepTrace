@@ -1,69 +1,58 @@
 """
 AI Deepfake Detection Service for DeepTrace.
 ==============================================
-Uses a pretrained EfficientNet-B4 backbone for face-level manipulation
-detection. The model processes face crops and outputs a manipulation
-probability score.
+Uses EfficientNet-B0 fine-tuned on FaceForensics++ (FF++) C23 dataset
+for binary real/fake face classification.
 
-Architecture:
-  - Backbone: EfficientNet-B4 pretrained on ImageNet (torchvision)
-  - Head: Single sigmoid output for binary real/fake classification
-  - Input: 384x384 RGB face crop tensor, normalized with ImageNet stats
+Model: Xicor9/efficientnet-b0-ffpp-c23 (Hugging Face)
+  - Architecture: EfficientNet-B0
+  - Training: FaceForensics++ C23 (DeepFake, FaceSwap, Face2Face, NeuralTextures)
+  - Performance: AUC 0.933, Accuracy 0.852, F1 0.843
+  - License: Research/educational use
 
-Model Selection Rationale:
-  EfficientNet-B4 was chosen because:
-  1. Strong feature extraction from ImageNet pretraining
-  2. Well-documented architecture in torchvision
-  3. Reasonable CPU inference speed
-  4. Good balance of accuracy and compute cost
-  5. Standard input size (384x384) compatible with face crops
-
-Input Requirements (must match exactly):
-  - Shape: (batch, 3, 384, 384) — RGB, NCHW format
-  - Normalization: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-  - Value range: [0, 1] before normalization
+Input Requirements:
+  - Shape: (batch, 3, 224, 224) — RGB, NCHW format
+  - Normalization: ToTensor() converts to [0,1] float
+  - No ImageNet normalization needed
 
 Output:
-  - manipulation_score: float in [0, 1] — higher = more likely manipulated
-  - confidence: based on distance from decision boundary
-
-IMPORTANT DISCLAIMER:
-  This model is pretrained on ImageNet (general image classification),
-  NOT specifically on deepfake detection datasets. The manipulation
-  scores represent visual anomaly detection based on general features,
-  not certified deepfake detection. For production use, a model
-  fine-tuned on FaceForensics++, Celeb-DF, or DFDC would be required.
-  This implementation demonstrates the full inference pipeline and
-  provides meaningful (though not specialized) visual analysis scores.
+  - 2-class softmax: [real_prob, fake_prob]
+  - fake_prob >= 0.5 → Likely Manipulated
+  - fake_prob <= 0.35 → Likely Authentic
+  - between → Inconclusive
 """
 
 import logging
+import os
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import models, transforms
+import torchvision.models as models
+from torchvision import transforms
 
 logger = logging.getLogger(__name__)
-
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-# Model input size (EfficientNet-B4 native resolution)
-MODEL_INPUT_SIZE = (384, 384)
+MODEL_INPUT_SIZE = (224, 224)
 
-# ImageNet normalization constants
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
-
-# Decision thresholds
-THRESHOLD_HIGH = 0.65    # Above this: Likely Manipulated
-THRESHOLD_LOW = 0.35     # Below this: Likely Authentic
+# Decision thresholds for fake probability
+THRESHOLD_HIGH = 0.5    # Above this: Likely Manipulated
+THRESHOLD_LOW = 0.35    # Below this: Likely Authentic
 # Between thresholds: Inconclusive
+
+# Where to cache model weights
+MODEL_CACHE_DIR = Path(__file__).parent.parent / "model_weights"
+WEIGHTS_FILENAME = "efficientnet_b0_ffpp_c23.pth"
+WEIGHTS_URL = (
+    "https://huggingface.co/Xicor9/efficientnet-b0-ffpp-c23/"
+    "resolve/main/efficientnet_b0_ffpp_c23.pth"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -72,19 +61,15 @@ THRESHOLD_LOW = 0.35     # Below this: Likely Authentic
 
 def get_preprocessing_transform():
     """
-    Create the preprocessing transform that matches the model's training.
+    Create preprocessing transform matching the model's training.
 
-    Steps:
-      1. Convert numpy/HWC to tensor/CHW
-      2. Normalize with ImageNet statistics
-
-    Returns:
-        A torchvision transform pipeline.
+    The model was trained with just transforms.ToTensor() and Resize(224,224).
+    No ImageNet normalization is needed.
     """
     return transforms.Compose([
-        transforms.ToTensor(),                          # HWC uint8 -> CHW float [0,1]
-        transforms.Normalize(mean=IMAGENET_MEAN,        # Normalize to ImageNet stats
-                             std=IMAGENET_STD),
+        transforms.ToPILImage(),
+        transforms.Resize(MODEL_INPUT_SIZE),
+        transforms.ToTensor(),  # HWC uint8 → CHW float [0,1]
     ])
 
 
@@ -97,9 +82,12 @@ def preprocess_face(face_rgb: np.ndarray) -> torch.Tensor:
         face_rgb: numpy array of shape (H, W, 3), RGB, values in [0, 255] or [0, 1].
 
     Returns:
-        Tensor of shape (1, 3, 384, 384) ready for model inference.
+        Tensor of shape (1, 3, 224, 224) ready for model inference.
     """
     transform = get_preprocessing_transform()
+    # Ensure uint8 for PIL conversion
+    if face_rgb.dtype != np.uint8:
+        face_rgb = (face_rgb * 255).clip(0, 255).astype(np.uint8)
     return transform(face_rgb).unsqueeze(0)  # Add batch dimension
 
 
@@ -109,43 +97,105 @@ def preprocess_face(face_rgb: np.ndarray) -> torch.Tensor:
 
 class DeepfakeDetector(nn.Module):
     """
-    Deepfake detection model using EfficientNet-B4 backbone.
+    Deepfake detection model using EfficientNet-B0 backbone,
+    fine-tuned on FaceForensics++ C23 dataset.
 
-    The classification head is a single linear layer that outputs
-    a manipulation probability via sigmoid activation.
+    Output: 2-class logits [real, fake].
     """
 
     def __init__(self):
         super().__init__()
 
-        # Load EfficientNet-B4 with ImageNet pretrained weights
-        self.backbone = models.efficientnet_b4(
-            weights=models.EfficientNet_B4_Weights.IMAGENET1K_V1
+        # Load EfficientNet-B0 with ImageNet pretrained weights
+        self.backbone = models.efficientnet_b0(
+            weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1
         )
 
         # Get the number of features from the backbone's classifier
         num_features = self.backbone.classifier[1].in_features
 
-        # Replace the classifier with our manipulation detection head
-        # Output: single scalar per image (logit for sigmoid)
-        self.backbone.classifier = nn.Sequential(
-            nn.Dropout(p=0.3, inplace=True),
-            nn.Linear(num_features, 1),
-        )
+        # Replace the classifier with 2-class output (real vs fake)
+        self.backbone.classifier = nn.Linear(num_features, 2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.
 
         Args:
-            x: Input tensor of shape (B, 3, 384, 384).
+            x: Input tensor of shape (B, 3, 224, 224).
 
         Returns:
-            Manipulation probability of shape (B,) in [0, 1].
+            Logits of shape (B, 2) — [real_logit, fake_logit].
         """
-        logits = self.backbone(x)           # (B, 1)
-        probs = torch.sigmoid(logits)       # (B, 1)
-        return probs.squeeze(-1)            # (B,)
+        return self.backbone(x)
+
+
+# ---------------------------------------------------------------------------
+# Model loading with auto-download
+# ---------------------------------------------------------------------------
+
+def _ensure_weights_downloaded() -> Path:
+    """
+    Download model weights if not already cached.
+
+    Returns:
+        Path to the downloaded .pth file.
+    """
+    MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    weights_path = MODEL_CACHE_DIR / WEIGHTS_FILENAME
+
+    if weights_path.exists():
+        logger.info("Model weights found at %s", weights_path)
+        return weights_path
+
+    logger.info("Downloading model weights from %s ...", WEIGHTS_URL)
+    try:
+        # Use torch.hub for downloading with progress
+        import urllib.request
+        import sys
+
+        def _progress_hook(block_num, block_size, total_size):
+            downloaded = block_num * block_size
+            if total_size > 0:
+                pct = min(100, downloaded * 100 // total_size)
+                if block_num % 50 == 0:
+                    logger.info("  Download progress: %d%%", pct)
+
+        urllib.request.urlretrieve(WEIGHTS_URL, str(weights_path), _progress_hook)
+        logger.info("Model weights downloaded successfully (%d bytes)", weights_path.stat().st_size)
+        return weights_path
+
+    except Exception as e:
+        logger.error("Failed to download model weights: %s", e)
+        raise RuntimeError(
+            f"Could not download model weights from {WEIGHTS_URL}. "
+            f"Please download manually and place at {weights_path}. "
+            f"Error: {e}"
+        )
+
+
+def _load_model_weights(model: DeepfakeDetector, weights_path: Path) -> DeepfakeDetector:
+    """Load pretrained weights into the model architecture."""
+    logger.info("Loading weights from %s ...", weights_path)
+    state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+
+    # The saved model was trained as a standalone EfficientNet-B0
+    # (not wrapped in self.backbone), so keys lack 'backbone.' prefix.
+    # Also, classifier was model.classifier[1] (Sequential) not model.classifier (Linear).
+    # Saved keys: features.X.Y.Z.weight, classifier.1.weight, etc.
+    # Our model keys: backbone.features.X.Y.Z.weight, backbone.classifier.weight, etc.
+    cleaned = {}
+    for k, v in state_dict.items():
+        name = k.replace("module.", "") if k.startswith("module.") else k
+        # Add 'backbone.' prefix
+        name = f"backbone.{name}"
+        # Fix classifier key: classifier.1.weight -> classifier.weight
+        name = name.replace("classifier.1.", "classifier.")
+        cleaned[name] = v
+
+    model.load_state_dict(cleaned, strict=True)
+    logger.info("Weights loaded successfully (%d parameters)", len(cleaned))
+    return model
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +204,7 @@ class DeepfakeDetector(nn.Module):
 
 class AIDetector:
     """
-    Singleton AI detection service.
+    Singleton AI detection service using the FaceForensics++ fine-tuned model.
 
     Usage:
         detector = AIDetector.get_instance()
@@ -173,7 +223,7 @@ class AIDetector:
         return cls._instance
 
     def __init__(self):
-        """Initialize the detector — loads model and moves to device."""
+        """Initialize the detector — download weights, load model, move to device."""
         # Detect device
         if torch.cuda.is_available():
             self._device = torch.device("cuda")
@@ -185,12 +235,18 @@ class AIDetector:
             self._device = torch.device("cpu")
             logger.info("Using CPU for inference")
 
-        # Create and load model
-        logger.info("Loading EfficientNet-B4 model...")
+        # Create model
+        logger.info("Creating EfficientNet-B0 deepfake detector...")
         self._model = DeepfakeDetector()
+
+        # Download and load weights
+        weights_path = _ensure_weights_downloaded()
+        self._model = _load_model_weights(self._model, weights_path)
+
+        # Move to device and set eval mode
         self._model.to(self._device)
         self._model.eval()
-        logger.info("Model loaded successfully on %s", self._device)
+        logger.info("Model ready on %s", self._device)
 
     @property
     def device(self) -> torch.device:
@@ -198,7 +254,7 @@ class AIDetector:
 
     @property
     def model_name(self) -> str:
-        return "EfficientNet-B4 (ImageNet pretrained)"
+        return "EfficientNet-B0 (FaceForensics++ C23)"
 
     @property
     def model_version(self) -> str:
@@ -214,10 +270,10 @@ class AIDetector:
 
         Returns:
             Dict with:
-              - manipulation_score: float [0,1] — higher = more manipulated
-              - real_score: float [0,1] — complement of manipulation_score
-              - prediction: str — "Likely Authentic", "Likely Manipulated", or "Inconclusive"
-              - confidence: float [0,1] — distance from 0.5 threshold
+              - manipulation_score: float [0,1] — fake probability
+              - real_score: float [0,1] — real probability
+              - prediction: str — classification
+              - confidence: float [0,1] — distance from neutral zone
               - model: str — model name
         """
         try:
@@ -227,30 +283,31 @@ class AIDetector:
             else:
                 face_float = face_rgb.astype(np.float32)
 
-            # Preprocess: HWC -> CHW tensor with normalization
+            # Preprocess: HWC -> CHW tensor with resize
             tensor = preprocess_face(face_float).to(self._device)
 
             # Run inference
-            manipulation_prob = self._model(tensor).item()
+            logits = self._model(tensor)  # (1, 2)
+            probs = torch.softmax(logits, dim=1)  # (1, 2)
 
-            # Clamp to [0, 1]
-            manipulation_score = max(0.0, min(1.0, manipulation_prob))
-            real_score = 1.0 - manipulation_score
+            real_prob = probs[0, 0].item()
+            fake_prob = probs[0, 1].item()
 
             # Classification based on thresholds
-            if manipulation_score >= THRESHOLD_HIGH:
+            if fake_prob >= THRESHOLD_HIGH:
                 prediction = "Likely Manipulated"
-            elif manipulation_score <= THRESHOLD_LOW:
+            elif fake_prob <= THRESHOLD_LOW:
                 prediction = "Likely Authentic"
             else:
                 prediction = "Inconclusive"
 
-            # Confidence: distance from the neutral zone (0.5)
-            confidence = abs(manipulation_score - 0.5) * 2  # maps to [0, 1]
+            # Confidence: distance from the neutral zone
+            # Peak confidence at 0 and 1, lowest at 0.5
+            confidence = abs(fake_prob - 0.5) * 2  # maps to [0, 1]
 
             return {
-                "manipulation_score": round(manipulation_score, 4),
-                "real_score": round(real_score, 4),
+                "manipulation_score": round(fake_prob, 4),
+                "real_score": round(real_prob, 4),
                 "prediction": prediction,
                 "confidence": round(confidence, 4),
                 "model": self.model_name,
@@ -296,26 +353,27 @@ class AIDetector:
         batch = torch.cat(tensors, dim=0).to(self._device)
 
         # Run batch inference
-        probs = self._model(batch).cpu().numpy()
+        logits = self._model(batch)  # (B, 2)
+        probs = torch.softmax(logits, dim=1).cpu().numpy()  # (B, 2)
 
         # Build results
         results = []
-        for prob in probs:
-            prob = float(max(0.0, min(1.0, prob)))
-            real = 1.0 - prob
+        for i in range(len(faces)):
+            fake_prob = float(probs[i, 1])
+            real_prob = float(probs[i, 0])
 
-            if prob >= THRESHOLD_HIGH:
+            if fake_prob >= THRESHOLD_HIGH:
                 pred = "Likely Manipulated"
-            elif prob <= THRESHOLD_LOW:
+            elif fake_prob <= THRESHOLD_LOW:
                 pred = "Likely Authentic"
             else:
                 pred = "Inconclusive"
 
-            confidence = abs(prob - 0.5) * 2
+            confidence = abs(fake_prob - 0.5) * 2
 
             results.append({
-                "manipulation_score": round(prob, 4),
-                "real_score": round(real, 4),
+                "manipulation_score": round(fake_prob, 4),
+                "real_score": round(real_prob, 4),
                 "prediction": pred,
                 "confidence": round(confidence, 4),
                 "model": self.model_name,

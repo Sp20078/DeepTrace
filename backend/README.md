@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 ### 2. AI Model Setup
 
-The model (EfficientNet-B4) is downloaded **automatically** on first run by torchvision. No manual download is needed. Weights are cached in `~/.cache/torch/hub/`.
+The deepfake detection model (EfficientNet-B0 fine-tuned on FaceForensics++) is downloaded **automatically** on first run. Weights are cached in `backend/model_weights/`.
 
 ### 3. Start the Backend
 
@@ -43,7 +43,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 The server will:
-1. Load the EfficientNet-B4 model (~75MB download on first run)
+1. Load the EfficientNet-B0 deepfake model (~16MB download on first run)
 2. Start listening on `http://127.0.0.1:8000`
 3. Show API docs at `http://127.0.0.1:8000/docs`
 
@@ -101,38 +101,45 @@ JSON response → Frontend
 
 ## AI Model Documentation
 
-### Model Selected: EfficientNet-B4 (ImageNet Pretrained)
+### Model Selected: EfficientNet-B0 (FaceForensics++ C23 Fine-tuned)
 
 **Why this model:**
-1. Strong feature extraction from ImageNet pretraining
-2. Well-documented, maintained by PyTorch/torchvision team
-3. Reasonable CPU inference speed (~50ms per face)
-4. Good balance of accuracy and compute cost
-5. 384x384 input resolution — compatible with face crops
-6. No manual weight download required
+1. Fine-tuned specifically on deepfake detection (FaceForensics++ C23 dataset)
+2. Trained on multiple manipulation types: DeepFake, FaceSwap, Face2Face, NeuralTextures
+3. Lightweight and fast on CPU (~10ms per face)
+4. 224x224 input — standard size for face crops
+5. Auto-downloads 16MB weights on first run
+6. Research/educational license suitable for hackathons
 
-**Source:** torchvision.models.efficientnet_b4 (Weights.IMAGENET1K_V1)
+**Source:** [Xicor9/efficientnet-b0-ffpp-c23](https://huggingface.co/Xicor9/efficientnet-b0-ffpp-c23) on Hugging Face
 
-**License:** BSD-3-Clause (torchvision)
+**License:** Research/educational use only
+
+**Performance (on FaceForensics++ validation set):**
+- AUC: 0.933
+- Accuracy: 0.852
+- F1-Score: 0.843
 
 **Input requirements:**
-- Shape: (batch, 3, 384, 384) — RGB, NCHW
-- Normalization: ImageNet mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-- Values: [0, 1] float before normalization
+- Shape: (batch, 3, 224, 224) — RGB, NCHW
+- Normalization: ToTensor() converts to [0,1] float
+- No ImageNet normalization needed
 
 **Output:**
-- manipulation_score: float [0, 1] — higher = more likely manipulated
+- 2-class softmax: [real_prob, fake_prob]
+- manipulation_score: float [0, 1] — fake probability (higher = more likely manipulated)
 - prediction: "Likely Authentic" / "Inconclusive" / "Likely Manipulated"
 
 **Thresholds:**
-- Score ≥ 0.65: Likely Manipulated
-- Score ≤ 0.35: Likely Authentic
+- Fake prob ≥ 0.50: Likely Manipulated
+- Fake prob ≤ 0.35: Likely Authentic
 - Between: Inconclusive
 
 **Known limitations:**
-- Pretrained on ImageNet (general images), NOT specifically on deepfake data
-- For production, a model fine-tuned on FaceForensics++ or Celeb-DF would be needed
-- Scores represent visual anomaly detection, not certified deepfake detection
+- Trained on FaceForensics++ C23 (compressed video frames)
+- May produce high scores for any face image due to domain bias
+- Best results with FaceForensics++ style video frames
+- For production, consider models trained on larger/more diverse datasets
 
 ---
 
@@ -151,9 +158,10 @@ backend/
 │   ├── file_handler.py      # File validation, storage
 │   ├── media_processor.py   # OpenCV: metadata, frame extraction
 │   ├── face_detector.py     # OpenCV: Haar cascade face detection
-│   ├── ai_detector.py       # PyTorch: EfficientNet-B4 inference
+│   ├── ai_detector.py       # PyTorch: EfficientNet-B0 deepfake detector
 │   └── analysis.py          # Pipeline orchestrator
 ├── uploads/                 # Uploaded files (gitignored)
+├── model_weights/           # Downloaded model weights (gitignored)
 └── utils/                   # Utility functions
 ```
 
@@ -165,7 +173,7 @@ backend/
 The backend allows all origins in development. If you still get CORS errors, make sure you're hitting `http://127.0.0.1:8000` (not `localhost`).
 
 ### Model download fails
-If torchvision can't download weights, check your internet connection. The weights are cached at `~/.cache/torch/hub/` after first download.
+If the model weights can't be downloaded, check your internet connection. The weights are cached in `backend/model_weights/` after first download. You can also manually download from [Hugging Face](https://huggingface.co/Xicor9/efficientnet-b0-ffpp-c23) and place the .pth file in `backend/model_weights/`.
 
 ### CUDA/GPU not detected
 The system automatically falls back to CPU. GPU acceleration is optional. To force CPU: `CUDA_VISIBLE_DEVICES="" uvicorn main:app --reload`
