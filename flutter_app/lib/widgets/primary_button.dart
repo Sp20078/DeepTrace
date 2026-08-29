@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 
 class PrimaryButton extends StatefulWidget {
@@ -61,6 +62,7 @@ class _PrimaryButtonState extends State<PrimaryButton>
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTapDown: (_) {
+          HapticFeedback.lightImpact();
           _pressController.forward();
           setState(() => _isPressed = true);
         },

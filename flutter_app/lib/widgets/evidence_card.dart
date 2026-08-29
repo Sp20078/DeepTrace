@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 import '../models/investigation.dart';
 
@@ -87,7 +88,10 @@ class _EvidenceCardState extends State<EvidenceCard>
         _hoverController.reverse();
       },
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap?.call();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 
 /// A card with optional glow effect, subtle border, and hover animation
@@ -75,7 +76,12 @@ class _GlowCardState extends State<GlowCard>
             }
           : null,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.onTap != null
+            ? () {
+                HapticFeedback.selectionClick();
+                widget.onTap!.call();
+              }
+            : null,
         child: AnimatedBuilder(
           animation: _scaleAnim,
           builder: (context, child) {

@@ -20,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     with TickerProviderStateMixin {
   late AnimationController _heroPulseController;
   bool _showContent = false;
+  double _scrollOffset = 0.0;
 
   @override
   void initState() {
@@ -41,10 +42,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Theme-aware color helpers
-  bool get _isDark =>
-      Theme.of(context).brightness == Brightness.dark;
-  Color get _bg =>
-      _isDark ? AppColors.background : AppColorsLight.background;
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => _isDark ? AppColors.background : AppColorsLight.background;
   Color get _surface => _isDark ? AppColors.surface : AppColorsLight.surface;
   Color get _surfaceElevated =>
       _isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
@@ -74,39 +73,87 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: padding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 32),
-                  _buildHeader(),
-                  const SizedBox(height: 40),
-                  _buildHeroSection(context, isWide),
-                  const SizedBox(height: 40),
-                  _buildHowItWorks(context),
-                  const SizedBox(height: 40),
-                  _buildRecentInvestigations(context),
-                  const SizedBox(height: 40),
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 32),
-                      child: Text(
-                        AppConstants.disclaimer,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: _textMuted,
-                          fontSize: 11,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollUpdateNotification) {
+                  setState(() => _scrollOffset = notification.metrics.pixels);
+                }
+                return false;
+              },
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: padding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 32),
+                    _buildHeader(),
+                    const SizedBox(height: 40),
+
+                    // Parallax hero section
+                    _buildParallaxHero(isWide),
+                    const SizedBox(height: 40),
+                    _buildHowItWorks(context),
+                    const SizedBox(height: 40),
+                    _buildRecentInvestigations(context),
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 32),
+                        child: Text(
+                          AppConstants.disclaimer,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: _textMuted,
+                            fontSize: 11,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildParallaxHero(bool isWide) {
+    // Parallax: hero shrinks and fades as you scroll
+    final parallaxFactor = (_scrollOffset / 400).clamp(0.0, 1.0);
+    final heroScale = 1.0 - parallaxFactor * 0.05;
+    final heroOpacity = 1.0 - parallaxFactor * 0.4;
+
+    return AnimatedBuilder(
+      animation: _heroPulseController,
+      builder: (context, child) {
+        return Transform(
+          alignment: Alignment.topCenter,
+          transform: Matrix4.identity()
+            ..scale(heroScale)
+            ..translate(0.0, -parallaxFactor * 20),
+          child: Opacity(
+            opacity: heroOpacity,
+            child: GlowCard(
+              glowColor: _primary.withOpacity(0.15),
+              borderColor: _primary.withOpacity(0.15),
+              borderRadius: 18,
+              padding: EdgeInsets.all(isWide ? 36 : 28),
+              child: isWide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 3, child: _buildHeroContent(context)),
+                        const SizedBox(width: 40),
+                        Expanded(flex: 2, child: _buildHeroVisual()),
+                      ],
+                    )
+                  : _buildHeroContent(context),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -160,25 +207,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHeroSection(BuildContext context, bool isWide) {
-    return GlowCard(
-      glowColor: _primary.withOpacity(0.15),
-      borderColor: _primary.withOpacity(0.15),
-      borderRadius: 18,
-      padding: EdgeInsets.all(isWide ? 36 : 28),
-      child: isWide
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _buildHeroContent(context)),
-                const SizedBox(width: 40),
-                Expanded(flex: 2, child: _buildHeroVisual()),
-              ],
-            )
-          : _buildHeroContent(context),
     );
   }
 
@@ -244,12 +272,17 @@ class _DashboardScreenState extends State<DashboardScreen>
               _circle(100, 0.12),
               _circle(70, 0.18),
               _circle(40, 0.25),
-              Icon(Icons.shield_rounded, size: 28, color: _primary.withOpacity(0.5)),
+              Icon(Icons.shield_rounded,
+                  size: 28, color: _primary.withOpacity(0.5)),
               Positioned(top: 12, left: 12, child: _cornerBracket()),
-              Positioned(top: 12, right: 12, child: _cornerBracket(mirror: true)),
-              Positioned(bottom: 12, left: 12, child: _cornerBracket(flip: true)),
               Positioned(
-                  bottom: 12, right: 12, child: _cornerBracket(mirror: true, flip: true)),
+                  top: 12, right: 12, child: _cornerBracket(mirror: true)),
+              Positioned(
+                  bottom: 12, left: 12, child: _cornerBracket(flip: true)),
+              Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: _cornerBracket(mirror: true, flip: true)),
             ],
           ),
         );
@@ -274,12 +307,16 @@ class _DashboardScreenState extends State<DashboardScreen>
       height: 18,
       decoration: BoxDecoration(
         border: Border(
-          top: !flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
-          bottom: flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
-          left:
-              !mirror ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
-          right:
-              mirror ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          top:
+              !flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          bottom:
+              flip ? BorderSide(color: _primary, width: 1.5) : BorderSide.none,
+          left: !mirror
+              ? BorderSide(color: _primary, width: 1.5)
+              : BorderSide.none,
+          right: mirror
+              ? BorderSide(color: _primary, width: 1.5)
+              : BorderSide.none,
         ),
       ),
     );
@@ -330,7 +367,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Expanded(child: _buildStepItem(steps[i], i + 1)),
                         if (i < steps.length - 1)
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8),
                             child: Icon(Icons.arrow_forward_ios_rounded,
                                 size: 14,
                                 color: _textMuted.withOpacity(0.5)),
