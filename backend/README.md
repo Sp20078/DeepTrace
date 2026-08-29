@@ -190,7 +190,7 @@ backend/
 | **Phase 1** | ✅ Done | Basic FastAPI server, health endpoint |
 | **Phase 2** | ✅ Done | File upload endpoint with validation |
 | **Phase 3** | ✅ Done | Analysis endpoint with mock pipeline |
-| **Phase 4** | 🔜 Next | Face detection, AI/ML model integration |
+| **Phase 4** | 🔜 Next | AI/ML deepfake detection model integration |
 | **Phase 5** | 🔜 | Risk scoring, evidence generation, forensic reports |
 | **Phase 6** | 🔜 | Database, authentication, production hardening |
 
@@ -233,4 +233,37 @@ Frame metadata includes: `frame_number`, `timestamp`, `timestamp_fmt`, `width`, 
 
 All functions raise `MediaError` for invalid/corrupted/missing files.
 Safety limit: max 500 frames per extraction (configurable via `MAX_FRAMES`).
-This module does NOT detect faces or run AI models yet.
+
+---
+
+## Face Detection & AI Preprocessing
+
+The `services/face_detector.py` module provides face detection and
+preprocessing for the future AI model.
+
+### Face Detection
+
+| Function | Purpose |
+|----------|---------|
+| `detect_faces(frame)` | Detect faces in a BGR frame, return bounding boxes |
+| `detect_faces_in_image(path)` | Load image + detect faces |
+| `crop_faces(frame, faces)` | Crop face regions with optional padding |
+
+### Preprocessing for AI
+
+| Function | Purpose |
+|----------|---------|
+| `preprocess_face(crop, target_size, color_mode)` | Resize + convert color + normalize |
+| `preprocess_faces(crops, ...)` | Batch preprocess multiple face crops |
+
+Configurable: `target_size` (default 224x224), `color_mode` (bgr/rgb/gray), `normalize` (float32 [0,1]).
+
+### High-Level Pipeline
+
+| Function | Purpose |
+|----------|---------|
+| `process_frame_for_ai(frame, ...)` | Detect + crop + preprocess a single frame |
+| `process_image_for_ai(path, ...)` | Full pipeline for an image file |
+| `process_video_frames_for_ai(frames, ...)` | Process extracted frames from a video |
+
+Output includes `ai_inputs`: a flat list of numpy arrays ready for batch model inference.
