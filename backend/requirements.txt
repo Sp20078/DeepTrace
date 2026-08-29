@@ -1,0 +1,7 @@
+# DeepTrace Backend — Phase 1 Dependencies
+# ==========================================
+# Only the essentials to run a FastAPI server.
+# Future phases will add: torch, opencv-python, numpy, Pillow, etc.
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
