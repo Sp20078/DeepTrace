@@ -94,6 +94,57 @@ class FadeRoute<T> extends PageRouteBuilder<T> {
         );
 }
 
+/// Cinematic transition for splash → dashboard
+/// Whole page fades in with slight scale while Hero handles the logo
+class CinematicRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+
+  CinematicRoute({required this.page})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionDuration: const Duration(milliseconds: 700),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+
+            // Scale from slightly larger
+            final scaleTween = Tween<double>(begin: 1.05, end: 1.0)
+                .animate(CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+            ));
+
+            // Fade in
+            final fadeTween = Tween<double>(begin: 0.0, end: 1.0)
+                .animate(CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+            ));
+
+            // Slight upward slide
+            final slideTween = Tween<Offset>(
+              begin: const Offset(0, 0.03),
+              end: Offset.zero,
+            ).animate(curved);
+
+            return FadeTransition(
+              opacity: fadeTween,
+              child: ScaleTransition(
+                scale: scaleTween,
+                child: SlideTransition(
+                  position: slideTween,
+                  child: child,
+                ),
+              ),
+            );
+          },
+        );
+}
+
 /// Scale-up + fade transition (for dramatic reveals like results)
 class ScaleUpRoute<T> extends PageRouteBuilder<T> {
   final Widget page;

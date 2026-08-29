@@ -187,12 +187,18 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                AppConstants.appName,
-                style: AppTheme.monospace.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 3,
+              Hero(
+                tag: 'deeptrace-logo',
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    AppConstants.appName,
+                    style: AppTheme.monospace.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 3,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 2),

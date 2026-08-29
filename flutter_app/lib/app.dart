@@ -44,7 +44,7 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
                 case '/':
                   return FadeRoute(page: const SplashScreen());
                 case '/dashboard':
-                  return SlideUpRoute(page: const MainShell());
+                  return CinematicRoute(page: const MainShell());
                 case '/upload':
                   return SlideRightRoute(page: const UploadScreen());
                 case '/analysis':

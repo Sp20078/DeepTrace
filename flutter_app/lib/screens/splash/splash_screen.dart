@@ -22,25 +22,21 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // Master fade+scale for the whole content
     _mainController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
 
-    // Rotating ring
     _ringController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4000),
     )..repeat();
 
-    // Scan line sweep
     _scanController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat();
 
-    // Glow pulse
     _glowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -48,7 +44,6 @@ class _SplashScreenState extends State<SplashScreen>
 
     _mainController.forward();
 
-    // Navigate after delay
     Timer(const Duration(milliseconds: 3200), () {
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/dashboard');
@@ -71,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Background grid pattern
+          // Background grid
           CustomPaint(
             size: Size.infinite,
             painter: _GridPainter(
@@ -96,22 +91,25 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Animated forensic icon
                     _buildAnimatedIcon(),
                     const SizedBox(height: 36),
 
-                    // App name (staggered in)
-                    _buildStaggeredText(
-                      AppConstants.appName,
-                      AppTheme.monospaceLarge.copyWith(
-                        letterSpacing: 8,
-                        fontSize: 44,
+                    // Hero-wrapped logo text
+                    Hero(
+                      tag: 'deeptrace-logo',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          AppConstants.appName,
+                          style: AppTheme.monospaceLarge.copyWith(
+                            letterSpacing: 8,
+                            fontSize: 44,
+                          ),
+                        ),
                       ),
-                      delay: 0.3,
                     ),
                     const SizedBox(height: 10),
 
-                    // Subtitle (staggered in)
                     _buildStaggeredText(
                       AppConstants.appSubtitle.toUpperCase(),
                       AppTheme.labelLarge.copyWith(
@@ -124,7 +122,6 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const SizedBox(height: 44),
 
-                    // Tagline (staggered in)
                     _buildStaggeredText(
                       AppConstants.splashTagline,
                       AppTheme.bodyMedium.copyWith(
@@ -171,7 +168,6 @@ class _SplashScreenState extends State<SplashScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer rotating ring
           AnimatedBuilder(
             animation: _ringController,
             builder: (context, child) {
@@ -196,8 +192,6 @@ class _SplashScreenState extends State<SplashScreen>
               );
             },
           ),
-
-          // Pulsing glow ring
           AnimatedBuilder(
             animation: _glowController,
             builder: (context, child) {
@@ -214,8 +208,6 @@ class _SplashScreenState extends State<SplashScreen>
               );
             },
           ),
-
-          // Inner static ring
           Container(
             width: 56,
             height: 56,
@@ -227,8 +219,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-
-          // Center dot
           AnimatedBuilder(
             animation: _glowController,
             builder: (context, child) {
@@ -249,8 +239,6 @@ class _SplashScreenState extends State<SplashScreen>
               );
             },
           ),
-
-          // Crosshair lines
           Positioned(
             top: 16,
             child: Container(width: 1, height: 14, color: AppColors.primary.withOpacity(0.5)),
@@ -273,10 +261,8 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// Draws a small arc segment on the circle
 class _ArcPainter extends CustomPainter {
   final Color color;
-
   _ArcPainter({required this.color});
 
   @override
@@ -300,10 +286,8 @@ class _ArcPainter extends CustomPainter {
   bool shouldRepaint(covariant _ArcPainter old) => false;
 }
 
-/// Draws a subtle background grid
 class _GridPainter extends CustomPainter {
   final Color color;
-
   _GridPainter({required this.color});
 
   @override
@@ -313,7 +297,6 @@ class _GridPainter extends CustomPainter {
       ..strokeWidth = 0.5;
 
     const spacing = 40.0;
-
     for (double x = 0; x < size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
