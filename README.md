@@ -131,7 +131,7 @@ The models in this project are trained and evaluated using established public be
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React, Tailwind CSS, JavaScript / TypeScript |
+| **Frontend** | Flutter |
 | **Backend** | Python, FastAPI |
 | **AI/ML** | PyTorch, OpenCV, NumPy |
 | **Media Processing** | FFmpeg, OpenCV |
@@ -181,6 +181,186 @@ Models are evaluated using standard cross-validation protocols on the datasets l
 - **Incremental Analysis** — Video frames are processed incrementally to reduce peak memory usage
 
 ## 🚀 Getting Started
+
+# DEEPTRACE — AI Deepfake Investigator
+
+---
+
+## 🚀 Setup
+
+### Prerequisites
+
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.0+)
+- Dart SDK (included with Flutter)
+
+### Quick Start
+
+```bash
+cd flutter_app
+flutter create . --project-name deeptrace
+flutter pub get
+flutter run -d chrome          # Web
+flutter run                     # Connected device/emulator
+```
+
+---
+
+## 📁 Project Structure
+
+```
+lib/
+├── main.dart                              # Entry point
+├── app.dart                               # MaterialApp + routing + theme
+│
+├── core/
+│   ├── theme/
+│   │   ├── app_theme.dart                 # Dark + light themes, colors, typography
+│   │   └── theme_provider.dart            # Theme toggle (ChangeNotifier)
+│   ├── navigation/
+│   │   └── page_transitions.dart          # Custom route transitions
+│   ├── layout/
+│   │   └── responsive_wrapper.dart        # Responsive padding/constraints
+│   └── constants/
+│       └── app_constants.dart             # Brand name, tagline, mock IDs
+│
+├── models/
+│   └── investigation.dart                 # Data models + mock investigation data
+│
+├── screens/
+│   ├── splash/splash_screen.dart          # Animated forensic splash
+│   ├── main_shell.dart                    # Bottom nav shell (Home/History/Settings)
+│   ├── dashboard/dashboard_screen.dart    # Hero, how-it-works, recent investigations
+│   ├── history/history_screen.dart        # Investigation history with stats
+│   ├── settings/settings_screen.dart      # Theme toggle, notifications, about
+│   ├── upload/upload_screen.dart          # Media selection + drag/drop + demo
+│   ├── analysis/analysis_screen.dart      # Scanning animation + step checklist
+│   ├── results/results_screen.dart        # Risk score + analysis breakdown
+│   ├── evidence/evidence_screen.dart      # Heatmap, timeline, frame thumbnails
+│   └── report/report_screen.dart          # Forensic report + confetti
+│
+└── widgets/
+    ├── primary_button.dart                # Animated press/hover button
+    ├── glow_card.dart                     # Glow-effect card with hover
+    ├── evidence_card.dart                 # Investigation card with risk accent
+    ├── risk_score_card.dart               # Animated gradient border + circular score
+    ├── analysis_metric_card.dart          # Animated progress bar metric
+    ├── finding_card.dart                  # Finding item with accent bar
+    ├── timeline.dart                      # Timeline with pulsing anomaly dots
+    ├── staggered_entry.dart               # Staggered fade-in animation
+    ├── animated_counter.dart              # Number count-up animation
+    └── confetti_overlay.dart              # Confetti particle system
+```
+
+---
+
+## 🧭 Navigation Flow
+
+```
+Splash ──► MainShell (Bottom Nav)
+              ├── 🏠 Home (Dashboard)
+              │     ├── Upload Evidence ──► Analysis ──► Results
+              │     │                                    ├── Evidence Analysis
+              │     │                                    └── Forensic Report
+              │     └── Try Demo Investigation ──► Analysis ──► Results
+              ├── 📜 History
+              └── ⚙️ Settings
+```
+
+---
+
+## 📱 Screens
+
+| # | Screen | Description |
+|---|--------|-------------|
+| 1 | **Splash** | Rotating rings, pulsing glow, crosshair lines, staggered text reveal |
+| 2 | **Dashboard** | Hero section with parallax scrolling, how-it-works steps, recent investigations |
+| 3 | **History** | Stats row (Total/High/Low risk), detailed investigation list |
+| 4 | **Settings** | Animated dark/light theme toggle, notifications, about section |
+| 5 | **Upload** | Media type cards, drag/drop area, supported formats, demo option |
+| 6 | **Analysis** | Grid background, scanning line + glow trail, animated checklist |
+| 7 | **Results** | Animated gradient border risk card, assessment callout, metric breakdown |
+| 8 | **Evidence** | Heatmap overlay, FLAGGED annotation, pulsing timeline, frame thumbnails |
+| 9 | **Report** | Structured report header, findings, conclusion, confetti on generate |
+
+---
+
+## 🎨 Design System
+
+| Element | Details |
+|---------|---------|
+| **Theme** | Dark + Light mode with smooth animated toggle |
+| **Fonts** | Inter (UI) + JetBrains Mono (monospace/brand) |
+| **Primary** | Blue (#3B82F6) / Light Blue (#2563EB) |
+| **Risk Colors** | 🔴 High (#EF4444) · 🟡 Medium (#F59E0B) · 🟢 Low (#22C55E) |
+| **Backgrounds** | Dark: #0B0E14 · Light: #F8FAFC |
+| **Cards** | Subtle borders, elevated surfaces, glow on hover |
+| **Spacing** | 4px grid, consistent padding via ResponsiveWrapper |
+
+---
+
+## ✨ Features
+
+### Micro-Interactions
+- **Animated gradient borders** — Rotating sweep gradient on the risk score card
+- **Hover glow** — Cards and buttons bloom with colored shadows on hover
+- **Press animation** — Buttons scale down to 0.96 on tap, spring back on release
+- **Staggered entry** — Sections fade-in sequentially on page load
+- **Animated counters** — Numbers count up from 0 to final value
+- **Pulsing dots** — Header indicator and timeline anomaly dots breathe
+
+### Shared Element Transition
+- **Hero animation** — DEEPTRACE logo scales from splash center → dashboard header
+- **CinematicRoute** — Custom page transition with scale + fade + slide
+
+### Parallax Scrolling
+- Hero section on dashboard scales down and fades as user scrolls
+
+### Confetti
+- Particle celebration when "Generate Report" is tapped on the report screen
+
+### Haptic Feedback
+- Light impact on button presses
+- Selection click on navigation, cards, and toggles
+- Medium impact on report generation
+
+### Theme Toggle
+- Dark ↔ Light mode with smooth `MaterialApp` theme transition
+- Settings screen with animated pill selector
+- All screens and widgets are fully theme-aware
+
+### Responsive Design
+- Adapts to phone, tablet, and desktop widths
+- Hero section uses side-by-side layout on wide screens
+- Results buttons stack vertically on mobile, side-by-side on desktop
+
+---
+
+## 🎯 Demo Flow
+
+For hackathon presentations:
+
+1. **Launch the app** → Splash screen with animated forensic icon
+2. **Dashboard** → Show the hero section, how-it-works steps, recent investigations
+3. **Tap "Try Demo Investigation"** → Analysis screen with scanning animation
+4. **Auto-navigate to Results** → Animated gradient risk score card (87/100 HIGH)
+5. **View Evidence** → Heatmap overlay, timeline with pulsing anomaly at 00:14
+6. **Full Report** → Structured forensic report, tap "Generate Report" for confetti
+7. **Settings** → Toggle dark/light theme to show design system
+8. **History** → Show investigation history with stats
+
+---
+
+## 🛠 Tech Stack
+
+- **Flutter** — Cross-platform UI framework
+- **Dart** — Null-safe, modern language features
+- **google_fonts** — Inter + JetBrains Mono typography
+- **Custom Painters** — Gradient borders, grid backgrounds, confetti particles
+- **Animation Controllers** — Coordinated multi-controller animations
+- **Hero Transitions** — Shared element navigation
+- **InheritedNotifier** — App-wide theme state management
+
+
 
 ### Prerequisites
 
