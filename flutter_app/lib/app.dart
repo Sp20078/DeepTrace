@@ -9,12 +9,9 @@ import 'screens/analysis/analysis_screen.dart';
 import 'screens/results/results_screen.dart';
 import 'screens/evidence/evidence_screen.dart';
 import 'screens/report/report_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
 
 class DeepTraceApp extends StatefulWidget {
-  final bool onboardingComplete;
-
-  const DeepTraceApp({super.key, this.onboardingComplete = false});
+  const DeepTraceApp({super.key});
 
   @override
   State<DeepTraceApp> createState() => _DeepTraceAppState();
@@ -42,13 +39,10 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: _themeProvider.themeMode,
-            initialRoute: widget.onboardingComplete ? '/' : '/onboarding',
             onGenerateRoute: (settings) {
               switch (settings.name) {
                 case '/':
                   return FadeRoute(page: const SplashScreen());
-                case '/onboarding':
-                  return FadeRoute(page: const OnboardingScreen());
                 case '/dashboard':
                   return SlideUpRoute(page: const MainShell());
                 case '/upload':
