@@ -22,7 +22,7 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 2000),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           widget.onComplete?.call();
@@ -53,27 +53,27 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
 
   List<_Particle> _generateParticles() {
     final colors = [
-      const Color(0xFF3B82F6), // blue
-      const Color(0xFF8B5CF6), // purple
-      const Color(0xFF22C55E), // green
-      const Color(0xFFF59E0B), // amber
-      const Color(0xFFEF4444), // red
-      const Color(0xFFEC4899), // pink
-      const Color(0xFF06B6D4), // cyan
+      const Color(0xFF3B82F6),
+      const Color(0xFF8B5CF6),
+      const Color(0xFF22C55E),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
+      const Color(0xFFEC4899),
+      const Color(0xFF06B6D4),
     ];
 
-    return List.generate(60, (i) {
+    return List.generate(40, (i) {
       return _Particle(
         color: colors[_random.nextInt(colors.length)],
         x: _random.nextDouble(),
         startY: -0.05 - _random.nextDouble() * 0.1,
-        speedY: 0.6 + _random.nextDouble() * 1.2,
-        speedX: (_random.nextDouble() - 0.5) * 0.3,
+        speedY: 0.5 + _random.nextDouble() * 1.0,
+        speedX: (_random.nextDouble() - 0.5) * 0.4,
         rotation: _random.nextDouble() * math.pi * 2,
         rotationSpeed: (_random.nextDouble() - 0.5) * 8,
         size: 4 + _random.nextDouble() * 6,
         shape: _random.nextBool() ? _Shape.circle : _Shape.rect,
-        delay: _random.nextDouble() * 0.3,
+        delay: _random.nextDouble() * 0.2,
       );
     });
   }
@@ -84,17 +84,20 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
       return const SizedBox.shrink();
     }
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _ConfettiPainter(
-            particles: _particles,
-            progress: _controller.value,
-          ),
-        );
-      },
+    // IgnorePointer prevents confetti from blocking taps underneath
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            size: Size.infinite,
+            painter: _ConfettiPainter(
+              particles: _particles,
+              progress: _controller.value,
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -136,19 +139,13 @@ class _ConfettiPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final p in particles) {
-      // Apply delay
       final t = ((progress - p.delay) / (1.0 - p.delay)).clamp(0.0, 1.0);
       if (t <= 0) continue;
 
-      // Position
       final x = size.width * p.x + size.width * p.speedX * t;
       final y =
           size.height * (p.startY + p.speedY * t) + 20 * math.sin(t * 4);
-
-      // Fade out
       final opacity = (1.0 - t * 0.8).clamp(0.0, 1.0);
-
-      // Gravity effect
       final gravity = t * t * 0.3;
       final adjustedY = y + size.height * gravity;
 
@@ -166,11 +163,7 @@ class _ConfettiPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, p.size / 2, paint);
       } else {
         canvas.drawRect(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: p.size,
-            height: p.size * 0.6,
-          ),
+          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
           paint,
         );
       }

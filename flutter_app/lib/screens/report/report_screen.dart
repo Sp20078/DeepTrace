@@ -95,11 +95,14 @@ class _ReportScreenState extends State<ReportScreen> {
             ),
           ),
 
-          // Confetti overlay
-          ConfettiOverlay(
-            show: _showConfetti,
-            onComplete: () => setState(() => _showConfetti = false),
-          ),
+          // Confetti overlay (IgnorePointer prevents blocking taps)
+          if (_showConfetti)
+            ConfettiOverlay(
+              show: _showConfetti,
+              onComplete: () {
+                if (mounted) setState(() => _showConfetti = false);
+              },
+            ),
         ],
       ),
     );
