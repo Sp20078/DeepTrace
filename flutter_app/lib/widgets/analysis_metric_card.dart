@@ -12,7 +12,7 @@ class AnalysisMetricCard extends StatefulWidget {
 }
 
 class _AnalysisMetricCardState extends State<AnalysisMetricCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _fillController;
   late AnimationController _hoverController;
   bool _isHovered = false;
