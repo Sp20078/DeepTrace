@@ -118,6 +118,39 @@ Expected response (error — unsupported format):
 }
 ```
 
+### Analysis endpoint
+
+```bash
+curl -X POST http://127.0.0.1:8000/analyze \
+  -F "file=@sample_image.jpg"
+```
+
+Expected response (mock — AI model not yet integrated):
+```json
+{
+  "analysis_id": "a1b2c3d4e5f6...",
+  "status": "completed",
+  "media_type": "image/jpeg",
+  "media_category": "image",
+  "message": "Mock analysis complete. AI model not yet integrated.",
+  "timestamp": "2026-08-30T...",
+  "file_path": "backend/uploads/a1b2c3d4e5f6.jpg",
+  "results": {
+    "risk_score": 0,
+    "risk_level": "pending",
+    "confidence": 0.0,
+    "components": {
+      "facial_analysis": { "score": null, "status": "awaiting_model" },
+      "temporal_analysis": { "score": null, "status": "awaiting_model" },
+      "visual_analysis": { "score": null, "status": "awaiting_model" }
+    },
+    "evidence_flags": [],
+    "suspicious_segments": [],
+    "recommendations": ["Awaiting AI model integration for full analysis."]
+  }
+}
+```
+
 **Supported formats:**
 - Images: JPEG, PNG, WebP, BMP, TIFF
 - Videos: MP4, MOV, AVI, WebM, MKV
@@ -135,10 +168,12 @@ backend/
 ├── .gitignore               # Git ignore rules
 ├── routers/
 │   ├── __init__.py
-│   └── upload.py            # POST /upload endpoint
+│   ├── upload.py            # POST /upload endpoint
+│   └── analysis.py          # POST /analyze endpoint
 ├── services/
 │   ├── __init__.py
-│   └── file_handler.py      # File validation, storage, metadata
+│   ├── file_handler.py      # File validation, storage, metadata
+│   └── analysis.py          # Analysis pipeline (mock -> real)
 ├── utils/                   # Utility functions (future phases)
 │   └── __init__.py
 ├── storage/                 # Temporary file storage (future phases)
@@ -153,9 +188,10 @@ backend/
 |-------|--------|-------------|
 | **Phase 1** | ✅ Done | Basic FastAPI server, health endpoint |
 | **Phase 2** | ✅ Done | File upload endpoint with validation |
-| **Phase 3** | 🔜 Next | OpenCV preprocessing, AI/ML model integration |
-| **Phase 4** | 🔜 | Risk scoring, evidence generation, forensic reports |
-| **Phase 5** | 🔜 | Database, authentication, production hardening |
+| **Phase 3** | ✅ Done | Analysis endpoint with mock pipeline |
+| **Phase 4** | 🔜 Next | OpenCV preprocessing, AI/ML model integration |
+| **Phase 5** | 🔜 | Risk scoring, evidence generation, forensic reports |
+| **Phase 6** | 🔜 | Database, authentication, production hardening |
 
 ---
 

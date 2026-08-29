@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.upload import router as upload_router
+from routers.analysis import router as analysis_router
 
 # ---------------------------------------------------------------------------
 # App Configuration
@@ -52,8 +53,9 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 # Register route modules. Each router defines a group of related endpoints.
-# New routers (analysis, reports, etc.) will be added here in future phases.
+# New routers (reports, etc.) will be added here in future phases.
 app.include_router(upload_router)
+app.include_router(analysis_router)
 
 
 # ---------------------------------------------------------------------------
