@@ -237,11 +237,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         const SizedBox(height: 14),
         PrimaryButton(
-          label: 'Try Demo Investigation',
-          icon: Icons.science_rounded,
+          label: 'Start Investigation',
+          icon: Icons.psychology_rounded,
           isOutlined: true,
-          onPressed: () =>
-              Navigator.of(context).pushNamed('/analysis', arguments: true),
+          onPressed: () => Navigator.of(context).pushNamed('/upload'),
         ),
         const SizedBox(height: 22),
         Row(

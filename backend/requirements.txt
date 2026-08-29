@@ -1,13 +1,15 @@
 # DeepTrace Backend — Dependencies
-# ==========================================
+# =========================================
 # Phase 1: FastAPI server basics
 # Phase 2: File upload support (python-multipart)
 # Phase 3: Analysis endpoint (mock pipeline)
 # OpenCV/Media: opencv-python + numpy for media reading & processing
-# Future phases will add: torch, Pillow, etc.
+# AI/ML: PyTorch + torchvision for deepfake detection
 
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
 python-multipart==0.0.9
 opencv-python-headless==4.10.0.84
 numpy>=2.0.0
+torch>=2.0.0
+torchvision>=0.15.0

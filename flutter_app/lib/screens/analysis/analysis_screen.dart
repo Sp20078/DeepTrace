@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/layout/responsive_wrapper.dart';
-import '../../widgets/staggered_entry.dart';
+import '../../services/api_service.dart';
+import '../results/results_screen.dart';
 
 class AnalysisScreen extends StatefulWidget {
-  const AnalysisScreen({super.key});
+  final File? file;
+  final String? fileName;
+
+  const AnalysisScreen({super.key, this.file, this.fileName});
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
@@ -16,16 +21,18 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   double _progress = 0.0;
   int _currentStep = -1;
   bool _isComplete = false;
+  bool _hasError = false;
+  String? _errorMsg;
   late AnimationController _scanController;
-  Timer? _analysisTimer;
+  Timer? _progressTimer;
 
   final List<_AnalysisStep> _steps = [
     _AnalysisStep('File integrity verified'),
-    _AnalysisStep('Metadata extraction'),
+    _AnalysisStep('Media metadata extraction'),
     _AnalysisStep('Face detection'),
-    _AnalysisStep('Visual artifact analysis'),
-    _AnalysisStep('Temporal analysis'),
-    _AnalysisStep('Evidence correlation'),
+    _AnalysisStep('AI model inference'),
+    _AnalysisStep('Result aggregation'),
+    _AnalysisStep('Evidence compilation'),
   ];
 
   @override
@@ -40,48 +47,85 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   void _startAnalysis() async {
-    const totalDuration = Duration(milliseconds: 5000);
-    const stepInterval = Duration(milliseconds: 800);
+    if (widget.file == null) {
+      setState(() {
+        _hasError = true;
+        _errorMsg = 'No file provided for analysis.';
+      });
+      return;
+    }
+
+    // Simulate step progress while waiting for API
+    const totalDuration = Duration(seconds: 30);
+    const stepInterval = Duration(milliseconds: 4000);
     final startTime = DateTime.now();
 
-    _analysisTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       final elapsed = DateTime.now().difference(startTime);
       final p = (elapsed.inMilliseconds / totalDuration.inMilliseconds)
-          .clamp(0.0, 1.0);
+          .clamp(0.0, 0.95); // Don't reach 100% until API responds
       final stepIndex = (elapsed.inMilliseconds / stepInterval.inMilliseconds)
           .floor()
           .clamp(0, _steps.length - 1);
 
-      if (mounted) {
+      if (mounted && !_hasError) {
         setState(() {
           _progress = p;
           _currentStep = stepIndex;
         });
       }
+    });
 
-      if (p >= 1.0) {
-        timer.cancel();
+    // Call the real API
+    try {
+      final result = await ApiService.analyzeFile(widget.file!);
+
+      _progressTimer?.cancel();
+
+      if (mounted) {
         setState(() {
-          _isComplete = true;
+          _progress = 1.0;
           _currentStep = _steps.length;
+          _isComplete = true;
         });
-        Timer(const Duration(milliseconds: 600), () {
+
+        // Navigate to results after brief pause
+        Timer(const Duration(milliseconds: 800), () {
           if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/results');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => ResultsScreen(analysisResult: result),
+              ),
+            );
           }
         });
       }
-    });
+    } on ApiException catch (e) {
+      _progressTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMsg = e.message;
+        });
+      }
+    } catch (e) {
+      _progressTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMsg = 'Connection error. Is the backend running?\n$e';
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    _analysisTimer?.cancel();
+    _progressTimer?.cancel();
     _scanController.dispose();
     super.dispose();
   }
 
-  // Theme helpers
   bool _isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
   Color _bg(BuildContext c) => _isDark(c) ? AppColors.background : AppColorsLight.background;
   Color _card(BuildContext c) => _isDark(c) ? AppColors.card : AppColorsLight.card;
@@ -90,6 +134,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   Color _primary(BuildContext c) => _isDark(c) ? AppColors.primary : AppColorsLight.primary;
   Color _primaryGlow(BuildContext c) => _isDark(c) ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
   Color _success(BuildContext c) => _isDark(c) ? AppColors.success : AppColorsLight.success;
+  Color _highRisk(BuildContext c) => _isDark(c) ? AppColors.highRisk : AppColorsLight.highRisk;
   Color _divider(BuildContext c) => _isDark(c) ? AppColors.divider : AppColorsLight.divider;
   Color _textPrimary(BuildContext c) => _isDark(c) ? AppColors.textPrimary : AppColorsLight.textPrimary;
   Color _textSecondary(BuildContext c) => _isDark(c) ? AppColors.textSecondary : AppColorsLight.textSecondary;
@@ -99,6 +144,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   Widget build(BuildContext context) {
     final padding = ResponsiveWrapper.padding(context);
+    final fileName = widget.fileName ?? 'unknown_file';
 
     return Scaffold(
       backgroundColor: _bg(context),
@@ -117,7 +163,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   Padding(
                     padding: const EdgeInsets.only(left: 20),
                     child: Text(
-                      'suspect_video.mp4',
+                      fileName,
                       style: AppTheme.bodyMedium.copyWith(color: _textTertiary(context)),
                     ),
                   ),
@@ -127,6 +173,66 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   _buildProgressSection(context),
                   const SizedBox(height: 28),
                   _buildChecklistCard(context),
+                  const SizedBox(height: 28),
+
+                  // Error display
+                  if (_hasError)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: _highRisk(context).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _highRisk(context).withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.error_outline_rounded, color: _highRisk(context), size: 20),
+                              const SizedBox(width: 10),
+                              Text('Analysis Failed', style: AppTheme.subtitleMedium.copyWith(color: _highRisk(context))),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(_errorMsg ?? 'Unknown error',
+                              style: AppTheme.bodyMedium.copyWith(color: _textSecondary(context), fontSize: 13)),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _hasError = false;
+                                      _errorMsg = null;
+                                      _progress = 0;
+                                      _currentStep = -1;
+                                      _isComplete = false;
+                                    });
+                                    _startAnalysis();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primary(context),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Retry'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Go Back'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
                   const SizedBox(height: 32),
                 ],
               ),
@@ -148,10 +254,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _isComplete ? _success(context) : _primary(context),
+                color: _hasError
+                    ? _highRisk(context)
+                    : (_isComplete ? _success(context) : _primary(context)),
                 boxShadow: [
                   BoxShadow(
-                    color: (_isComplete ? _success(context) : _primary(context))
+                    color: (_hasError
+                            ? _highRisk(context)
+                            : (_isComplete ? _success(context) : _primary(context)))
                         .withOpacity(0.4),
                     blurRadius: 6,
                     spreadRadius: 1,
@@ -171,7 +281,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     final p = _primary(context);
     final s = _surface(context);
     final cb = _cardBorder(context);
-    final tm = _textMuted(context);
 
     return Container(
       width: double.infinity,
@@ -187,16 +296,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           alignment: Alignment.center,
           children: [
             CustomPaint(size: Size.infinite, painter: _AnalysisGridPainter(color: p)),
-            Icon(Icons.videocam_rounded, size: 48, color: tm.withOpacity(0.4)),
+            Icon(Icons.videocam_rounded, size: 48, color: _textMuted(context).withOpacity(0.4)),
 
             // Scan line
             AnimatedBuilder(
               animation: _scanController,
               builder: (context, child) {
                 return Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
+                  top: 0, left: 0, right: 0,
                   child: Transform.translate(
                     offset: Offset(0, 200 * _scanController.value),
                     child: Container(
@@ -212,31 +319,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               },
             ),
 
-            // Scan glow trail
-            AnimatedBuilder(
-              animation: _scanController,
-              builder: (context, child) {
-                return Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Transform.translate(
-                    offset: Offset(0, 200 * _scanController.value - 20),
-                    child: Container(
-                      height: 20,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, p.withOpacity(0.08)],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-
             Positioned(top: 10, left: 10, child: _cornerBracket(context)),
             Positioned(top: 10, right: 10, child: _cornerBracket(context, mirror: true)),
             Positioned(bottom: 10, left: 10, child: _cornerBracket(context, flip: true)),
@@ -244,35 +326,43 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
             // Status badge
             Positioned(
-              top: 12,
-              right: 12,
+              top: 12, right: 12,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _isComplete ? _success(context).withOpacity(0.15) : _primaryGlow(context),
+                  color: _hasError
+                      ? _highRisk(context).withOpacity(0.15)
+                      : _isComplete
+                          ? _success(context).withOpacity(0.15)
+                          : _primaryGlow(context),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: _isComplete
-                        ? _success(context).withOpacity(0.3)
-                        : p.withOpacity(0.3),
+                    color: _hasError
+                        ? _highRisk(context).withOpacity(0.3)
+                        : _isComplete
+                            ? _success(context).withOpacity(0.3)
+                            : p.withOpacity(0.3),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (!_isComplete)
+                    if (_hasError)
+                      Icon(Icons.error_outline_rounded, size: 12, color: _highRisk(context))
+                    else if (!_isComplete)
                       SizedBox(
-                        width: 10,
-                        height: 10,
+                        width: 10, height: 10,
                         child: CircularProgressIndicator(strokeWidth: 2, color: p),
                       )
                     else
                       Icon(Icons.check_rounded, size: 12, color: _success(context)),
                     const SizedBox(width: 6),
                     Text(
-                      _isComplete ? 'COMPLETE' : 'ANALYZING',
+                      _hasError ? 'FAILED' : (_isComplete ? 'COMPLETE' : 'ANALYZING'),
                       style: AppTheme.labelMedium.copyWith(
-                        color: _isComplete ? _success(context) : p,
+                        color: _hasError
+                            ? _highRisk(context)
+                            : _isComplete ? _success(context) : p,
                         fontSize: 10,
                         letterSpacing: 1,
                       ),
@@ -290,8 +380,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   Widget _cornerBracket(BuildContext context, {bool mirror = false, bool flip = false}) {
     final p = _primary(context);
     return Container(
-      width: 20,
-      height: 20,
+      width: 20, height: 20,
       decoration: BoxDecoration(
         border: Border(
           top: !flip ? BorderSide(color: p, width: 1.5) : BorderSide.none,
@@ -324,18 +413,20 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_isComplete ? 'Analysis Complete' : 'Analyzing…',
+              Text(_hasError ? 'Analysis Failed' : (_isComplete ? 'Analysis Complete' : 'Analyzing...'),
                   style: AppTheme.subtitleMedium),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isComplete ? s.withOpacity(0.1) : pg,
+                  color: _hasError
+                      ? _highRisk(context).withOpacity(0.1)
+                      : _isComplete ? s.withOpacity(0.1) : pg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '$percentage%',
                   style: AppTheme.labelMedium.copyWith(
-                    color: _isComplete ? s : p,
+                    color: _hasError ? _highRisk(context) : (_isComplete ? s : p),
                     fontSize: 12,
                   ),
                 ),
@@ -348,7 +439,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             child: LinearProgressIndicator(
               value: _progress,
               backgroundColor: d,
-              valueColor: AlwaysStoppedAnimation<Color>(_isComplete ? s : p),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  _hasError ? _highRisk(context) : (_isComplete ? s : p)),
               minHeight: 8,
             ),
           ),
@@ -403,8 +495,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             Icon(Icons.check_circle_rounded, color: s, size: 20)
           else if (isCurrent)
             SizedBox(
-              width: 20,
-              height: 20,
+              width: 20, height: 20,
               child: CircularProgressIndicator(strokeWidth: 2, color: p),
             )
           else
@@ -421,8 +512,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               ),
             ),
           ),
-          if (isDone)
-            Icon(Icons.check_rounded, color: s, size: 16),
+          if (isDone) Icon(Icons.check_rounded, color: s, size: 16),
         ],
       ),
     );
@@ -443,7 +533,6 @@ class _AnalysisGridPainter extends CustomPainter {
     final paint = Paint()
       ..color = color.withOpacity(0.03)
       ..strokeWidth = 0.5;
-
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);

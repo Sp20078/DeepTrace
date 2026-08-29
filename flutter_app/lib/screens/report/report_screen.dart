@@ -3,14 +3,15 @@ import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/layout/responsive_wrapper.dart';
-import '../../models/investigation.dart';
-import '../../widgets/finding_card.dart';
+import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/staggered_entry.dart';
 import '../../widgets/confetti_overlay.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({super.key});
+  final AnalysisResult? analysisResult;
+
+  const ReportScreen({super.key, this.analysisResult});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -21,18 +22,16 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final investigation = MockData.demoInvestigation;
+    final result = widget.analysisResult!;
     final padding = ResponsiveWrapper.padding(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.background : AppColorsLight.background;
-    final textSecondary =
-        isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
 
     return Scaffold(
       backgroundColor: bg,
       body: Stack(
         children: [
-          // Main content
           AppBar(
             leading: IconButton(
               icon: Icon(Icons.arrow_back_rounded, color: textSecondary),
@@ -52,18 +51,17 @@ class _ReportScreenState extends State<ReportScreen> {
                     staggerDelay: const Duration(milliseconds: 80),
                     children: [
                       const SizedBox(height: 16),
-                      _buildReportHeader(context, investigation),
+                      _buildReportHeader(context, result),
                       const SizedBox(height: 28),
+
+                      // Key Findings
                       Row(
                         children: [
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 8, height: 8,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isDark
-                                  ? AppColors.primary
-                                  : AppColorsLight.primary,
+                              color: isDark ? AppColors.primary : AppColorsLight.primary,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -71,17 +69,45 @@ class _ReportScreenState extends State<ReportScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      ...investigation.findings.map(
-                        (finding) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: FindingCard(finding: finding),
-                        ),
-                      ),
+
+                      if (result.findings.isNotEmpty)
+                        ...result.findings.map(
+                          (finding) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildFindingCard(context, finding),
+                          ),
+                        )
+                      else
+                        _buildNoFindingsCard(context),
+
                       const SizedBox(height: 28),
-                      _buildConclusion(context, investigation),
+
+                      // Suspicious timestamps
+                      if (result.suspiciousFrames.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Container(
+                              width: 8, height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isDark ? AppColors.highRisk : AppColorsLight.highRisk,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text('Suspicious Timestamps', style: AppTheme.headingSmall),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTimestampsList(context),
+                        const SizedBox(height: 28),
+                      ],
+
+                      // Conclusion
+                      _buildConclusion(context, result),
                       const SizedBox(height: 24),
                       _buildDisclaimer(context),
                       const SizedBox(height: 28),
+
                       PrimaryButton(
                         label: 'Generate Report',
                         icon: Icons.file_download_rounded,
@@ -95,7 +121,6 @@ class _ReportScreenState extends State<ReportScreen> {
             ),
           ),
 
-          // Confetti overlay (IgnorePointer prevents blocking taps)
           if (_showConfetti)
             ConfettiOverlay(
               show: _showConfetti,
@@ -118,13 +143,10 @@ class _ReportScreenState extends State<ReportScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Colors.white, size: 18),
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
             const SizedBox(width: 10),
-            Text(
-              'Report generated successfully!',
-              style: AppTheme.bodyMedium.copyWith(color: Colors.white),
-            ),
+            Text('Report generated successfully!',
+                style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
           ],
         ),
         backgroundColor: isDark ? AppColors.success : AppColorsLight.success,
@@ -135,23 +157,24 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  Widget _buildReportHeader(BuildContext context, Investigation investigation) {
+  Widget _buildReportHeader(BuildContext context, AnalysisResult result) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final card = isDark ? AppColors.card : AppColorsLight.card;
     final primary = isDark ? AppColors.primary : AppColorsLight.primary;
-    final primaryGlow =
-        isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
-    final cardBorder =
-        isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
-    final textPrimary =
-        isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
-    final textTertiary =
-        isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
     final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
-    final highRisk =
-        isDark ? AppColors.highRisk : AppColorsLight.highRisk;
-    final highRiskBg =
-        isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+
+    final riskLabel = result.isHighRisk ? 'HIGH RISK' :
+        (result.isMediumRisk ? 'MEDIUM RISK' : 'LOW RISK');
+    final riskColor = result.isHighRisk ? highRisk :
+        (result.isMediumRisk
+            ? (isDark ? AppColors.mediumRisk : AppColorsLight.mediumRisk)
+            : (isDark ? AppColors.lowRisk : AppColorsLight.lowRisk));
 
     return Container(
       width: double.infinity,
@@ -161,8 +184,7 @@ class _ReportScreenState extends State<ReportScreen> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: primary.withOpacity(0.15)),
         boxShadow: [
-          BoxShadow(
-              color: primary.withOpacity(0.06), blurRadius: 20, spreadRadius: -4)
+          BoxShadow(color: primary.withOpacity(0.06), blurRadius: 20, spreadRadius: -4)
         ],
       ),
       child: Column(
@@ -171,8 +193,7 @@ class _ReportScreenState extends State<ReportScreen> {
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 40, height: 40,
                 decoration: BoxDecoration(
                   color: primaryGlow,
                   borderRadius: BorderRadius.circular(10),
@@ -195,41 +216,41 @@ class _ReportScreenState extends State<ReportScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          _infoRow('Investigation ID', investigation.id,
+          _infoRow('Investigation ID', result.analysisId.substring(0, 12).toUpperCase(),
               textTertiary: textTertiary, textPrimary: textPrimary),
-          _infoRow('File', investigation.fileName,
+          _infoRow('File', result.filename,
               textTertiary: textTertiary, textPrimary: textPrimary),
-          _infoRow('Media Type', investigation.mediaType,
+          _infoRow('Media Type', result.mediaCategory.toUpperCase(),
               textTertiary: textTertiary, textPrimary: textPrimary),
-          _infoRow('Analyzed Frames', '${investigation.analyzedFrames}',
+          if (result.mediaCategory == 'video')
+            _infoRow('Frames Analyzed', '${result.framesAnalyzed}',
+                textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Faces Detected', '${result.facesDetected}',
               textTertiary: textTertiary, textPrimary: textPrimary),
+          if (result.fileHash.isNotEmpty)
+            _infoRow('SHA-256', '${result.fileHash.substring(0, 32)}...',
+                textTertiary: textTertiary, textPrimary: textPrimary),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1, color: cardBorder),
           ),
-          _infoRow('Overall Risk', '${investigation.riskScore} / 100',
-              valueColor: highRisk,
-              textTertiary: textTertiary,
-              textPrimary: textPrimary),
-          _infoRow('Assessment', investigation.assessment,
-              valueColor: highRisk,
-              isBadge: true,
-              textTertiary: textTertiary,
-              textPrimary: textPrimary,
-              highRiskBg: highRiskBg,
-              highRisk: highRisk),
+          _infoRow('Model', result.model,
+              textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Overall Risk', '${result.riskScore} / 100',
+              valueColor: riskColor, textTertiary: textTertiary, textPrimary: textPrimary),
+          _infoRow('Assessment', riskLabel,
+              valueColor: riskColor, isBadge: true,
+              textTertiary: textTertiary, textPrimary: textPrimary,
+              highRiskBg: highRiskBg, highRisk: riskColor),
         ],
       ),
     );
   }
 
   Widget _infoRow(String label, String value,
-      {Color? valueColor,
-      bool isBadge = false,
-      required Color textTertiary,
-      required Color textPrimary,
-      Color? highRiskBg,
-      Color? highRisk}) {
+      {Color? valueColor, bool isBadge = false,
+      required Color textTertiary, required Color textPrimary,
+      Color? highRiskBg, Color? highRisk}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -238,52 +259,165 @@ class _ReportScreenState extends State<ReportScreen> {
           SizedBox(
             width: 140,
             child: Text(label,
-                style:
-                    AppTheme.bodyMedium.copyWith(color: textTertiary, fontSize: 13)),
+                style: AppTheme.bodyMedium.copyWith(color: textTertiary, fontSize: 13)),
           ),
           Expanded(
             child: isBadge
                 ? Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: highRiskBg,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: (highRisk ?? valueColor ?? textPrimary)
-                              .withOpacity(0.2)),
+                          color: (highRisk ?? valueColor ?? textPrimary).withOpacity(0.2)),
                     ),
-                    child: Text(
-                      value,
-                      style: AppTheme.labelMedium.copyWith(
-                        color: valueColor ?? textPrimary,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                    child: Text(value, style: AppTheme.labelMedium.copyWith(
+                        color: valueColor ?? textPrimary, fontSize: 12, letterSpacing: 0.5)),
                   )
-                : Text(
-                    value,
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: valueColor ?? textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                : Text(value, style: AppTheme.bodyLarge.copyWith(
+                    color: valueColor ?? textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildConclusion(BuildContext context, Investigation investigation) {
+  Widget _buildFindingCard(BuildContext context, dynamic finding) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+
+    final severity = finding['severity'] ?? 'info';
+    final isCritical = severity == 'critical';
+    final description = finding['description'] ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4, height: 40,
+            decoration: BoxDecoration(
+              color: isCritical ? highRisk : (isDark ? AppColors.primary : AppColorsLight.primary),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isCritical)
+                  Text('CRITICAL', style: AppTheme.labelMedium.copyWith(
+                      color: highRisk, fontSize: 10, letterSpacing: 1)),
+                Text(description,
+                    style: AppTheme.bodyLarge.copyWith(
+                        color: textPrimary, fontSize: 14, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoFindingsCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final success = isDark ? AppColors.success : AppColorsLight.success;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle_outline_rounded, color: success, size: 32),
+          const SizedBox(height: 10),
+          Text('No critical findings',
+              style: AppTheme.bodyLarge.copyWith(color: success)),
+          const SizedBox(height: 4),
+          Text('The analysis did not identify significant manipulation indicators.',
+              style: AppTheme.bodySmall.copyWith(color: textMuted),
+              textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimestampsList(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        children: widget.analysisResult!.suspiciousFrames.take(10).map((frame) {
+          final timestamp = frame['timestamp_fmt'] ?? '${frame['timestamp']}s';
+          final score = (frame['score'] * 100).round();
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: cardBorder, width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8, height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: highRisk),
+                ),
+                const SizedBox(width: 12),
+                Text(timestamp, style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Text('Score: $score%', style: AppTheme.bodyMedium.copyWith(color: highRisk)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildConclusion(BuildContext context, AnalysisResult result) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? AppColors.surface : AppColorsLight.surface;
     final primary = isDark ? AppColors.primary : AppColorsLight.primary;
-    final cardBorder =
-        isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
-    final textPrimary =
-        isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+
+    String conclusion;
+    if (result.isHighRisk) {
+      conclusion = 'The analyzed media exhibits multiple signals associated with digital manipulation. A risk score of ${result.riskScore}/100 was assigned based on AI analysis of ${result.facesDetected} detected face(s). Human verification is strongly recommended.';
+    } else if (result.isMediumRisk) {
+      conclusion = 'The analysis identified some indicators that may suggest manipulation. A risk score of ${result.riskScore}/100 was assigned. Further investigation and manual review are recommended.';
+    } else if (result.facesDetected == 0) {
+      conclusion = result.message.isNotEmpty
+          ? result.message
+          : 'Unable to perform manipulation analysis. No suitable faces were detected in the media.';
+    } else {
+      conclusion = 'The analysis indicates the media is likely authentic, with a risk score of ${result.riskScore}/100 based on ${result.facesDetected} detected face(s). No significant manipulation indicators were found.';
+    }
 
     return Container(
       width: double.infinity,
@@ -306,12 +440,9 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            '"${investigation.conclusion}"',
+            '"$conclusion"',
             style: AppTheme.bodyLarge.copyWith(
-              color: textPrimary,
-              fontStyle: FontStyle.italic,
-              height: 1.6,
-            ),
+                color: textPrimary, fontStyle: FontStyle.italic, height: 1.6),
           ),
         ],
       ),
@@ -320,10 +451,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Widget _buildDisclaimer(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surfaceElevated =
-        isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
-    final cardBorder =
-        isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
     final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
 
     return Container(
@@ -342,8 +471,7 @@ class _ReportScreenState extends State<ReportScreen> {
           Expanded(
             child: Text(
               AppConstants.disclaimer,
-              style: AppTheme.bodySmall
-                  .copyWith(color: textMuted, fontSize: 12, height: 1.4),
+              style: AppTheme.bodySmall.copyWith(color: textMuted, fontSize: 12, height: 1.4),
             ),
           ),
         ],

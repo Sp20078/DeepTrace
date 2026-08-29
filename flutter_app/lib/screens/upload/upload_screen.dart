@@ -1,11 +1,89 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/layout/responsive_wrapper.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/staggered_entry.dart';
+import '../../services/api_service.dart';
+import '../analysis/analysis_screen.dart';
+import '../results/results_screen.dart';
 
-class UploadScreen extends StatelessWidget {
+class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
+
+  @override
+  State<UploadScreen> createState() => _UploadScreenState();
+}
+
+class _UploadScreenState extends State<UploadScreen> {
+  File? _selectedFile;
+  String? _selectedFileName;
+  bool _isAnalyzing = false;
+  String? _errorMessage;
+
+  Future<void> _pickFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff',
+                            'mp4', 'mov', 'avi', 'webm', 'mkv'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _selectedFile = File(result.files.single.path!);
+          _selectedFileName = result.files.single.name;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to pick file: $e';
+      });
+    }
+  }
+
+  Future<void> _startAnalysis() async {
+    if (_selectedFile == null) {
+      setState(() {
+        _errorMessage = 'Please select a file first.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isAnalyzing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await ApiService.analyzeFile(_selectedFile!);
+
+      if (mounted) {
+        // Navigate to results with real data
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => ResultsScreen(analysisResult: result),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+          _errorMessage = e.message;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+          _errorMessage = 'Connection error. Is the backend server running?\n$e';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +99,7 @@ class UploadScreen extends StatelessWidget {
     final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
     final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
     final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
 
     return Scaffold(
       backgroundColor: bg,
@@ -46,6 +125,8 @@ class UploadScreen extends StatelessWidget {
                     style: AppTheme.bodyLarge.copyWith(color: textSecondary),
                   ),
                   const SizedBox(height: 32),
+
+                  // File type cards
                   isWide
                       ? Row(
                           children: [
@@ -53,8 +134,8 @@ class UploadScreen extends StatelessWidget {
                               child: _MediaTypeCard(
                                 icon: Icons.photo_camera_rounded,
                                 label: 'Image',
-                                description: 'JPG, PNG',
-                                onTap: () => _selectDemo(context),
+                                description: 'JPG, PNG, WebP',
+                                onTap: _pickFile,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -62,8 +143,8 @@ class UploadScreen extends StatelessWidget {
                               child: _MediaTypeCard(
                                 icon: Icons.videocam_rounded,
                                 label: 'Video',
-                                description: 'MP4, MOV',
-                                onTap: () => _selectDemo(context),
+                                description: 'MP4, MOV, AVI',
+                                onTap: _pickFile,
                               ),
                             ),
                           ],
@@ -73,38 +154,71 @@ class UploadScreen extends StatelessWidget {
                             _MediaTypeCard(
                               icon: Icons.photo_camera_rounded,
                               label: 'Image',
-                              description: 'JPG, PNG',
-                              onTap: () => _selectDemo(context),
+                              description: 'JPG, PNG, WebP',
+                              onTap: _pickFile,
                             ),
                             const SizedBox(height: 12),
                             _MediaTypeCard(
                               icon: Icons.videocam_rounded,
                               label: 'Video',
-                              description: 'MP4, MOV',
-                              onTap: () => _selectDemo(context),
+                              description: 'MP4, MOV, AVI',
+                              onTap: _pickFile,
                             ),
                           ],
                         ),
                   const SizedBox(height: 28),
-                  _buildDropArea(context),
+
+                  // Drop area / selected file display
+                  _buildDropArea(context, surface, primary, primaryGlow, textSecondary),
                   const SizedBox(height: 28),
+
+                  // Error message
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: highRisk.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: highRisk.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline_rounded, color: highRisk, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: AppTheme.bodyMedium.copyWith(
+                                color: highRisk,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  if (_errorMessage != null) const SizedBox(height: 20),
+
+                  // Supported formats
                   Center(
                     child: Column(
                       children: [
                         Text('Supported formats',
                             style: AppTheme.labelMedium.copyWith(color: textTertiary)),
                         const SizedBox(height: 6),
-                        Text('JPG, PNG, MP4, MOV',
+                        Text('JPG, PNG, WebP, BMP, TIFF, MP4, MOV, AVI, WebM, MKV',
                             style: AppTheme.bodySmall.copyWith(color: textMuted)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
+
+                  // Analyze button
                   PrimaryButton(
-                    label: 'Try Demo Evidence',
-                    icon: Icons.science_rounded,
-                    isOutlined: true,
-                    onPressed: () => _selectDemo(context),
+                    label: _isAnalyzing ? 'Analyzing...' : 'Analyze Evidence',
+                    icon: _isAnalyzing ? Icons.hourglass_top_rounded : Icons.psychology_rounded,
+                    onPressed: _isAnalyzing ? () {} : _startAnalysis,
                   ),
                   const SizedBox(height: 32),
                 ],
@@ -116,19 +230,68 @@ class UploadScreen extends StatelessWidget {
     );
   }
 
-  void _selectDemo(BuildContext context) {
-    Navigator.of(context).pushReplacementNamed('/analysis', arguments: true);
-  }
-
-  Widget _buildDropArea(BuildContext context) {
+  Widget _buildDropArea(BuildContext context, Color surface, Color primary,
+      Color primaryGlow, Color textSecondary) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
-    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
-    final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
-    final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final success = isDark ? AppColors.success : AppColorsLight.success;
 
+    if (_selectedFile != null) {
+      // Show selected file
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: success.withOpacity(0.3), width: 2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: success.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.check_circle_rounded, color: success, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _selectedFileName ?? 'Unknown file',
+                    style: AppTheme.subtitleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(_selectedFile!.lengthSync() / 1024).toStringAsFixed(1)} KB',
+                    style: AppTheme.bodySmall.copyWith(color: textMuted),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close_rounded, color: textMuted),
+              onPressed: () {
+                setState(() {
+                  _selectedFile = null;
+                  _selectedFileName = null;
+                });
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Default drop area
     return GestureDetector(
-      onTap: () => _selectDemo(context),
+      onTap: _pickFile,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
@@ -152,11 +315,7 @@ class UploadScreen extends StatelessWidget {
                   color: primaryGlow,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.cloud_upload_rounded,
-                  size: 32,
-                  color: primary.withOpacity(0.7),
-                ),
+                child: Icon(Icons.cloud_upload_rounded, size: 32, color: primary.withOpacity(0.7)),
               ),
               const SizedBox(height: 16),
               Text('Drag & drop or tap to select',

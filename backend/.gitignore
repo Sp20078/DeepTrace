@@ -12,6 +12,15 @@ __pycache__/
 # Environment variables
 .env
 
+# Uploaded files and extracted frames
+uploads/
+
+# Model weights (downloaded by torchvision automatically)
+models/
+*.pth
+*.pt
+*.onnx
+
 # OS files
 .DS_Store
 Thumbs.db

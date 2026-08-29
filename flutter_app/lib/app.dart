@@ -9,6 +9,7 @@ import 'screens/analysis/analysis_screen.dart';
 import 'screens/results/results_screen.dart';
 import 'screens/evidence/evidence_screen.dart';
 import 'screens/report/report_screen.dart';
+import 'services/api_service.dart';
 
 class DeepTraceApp extends StatefulWidget {
   const DeepTraceApp({super.key});
@@ -48,13 +49,32 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
                 case '/upload':
                   return SlideRightRoute(page: const UploadScreen());
                 case '/analysis':
+                  final args = settings.arguments;
+                  if (args is Map<String, dynamic>) {
+                    return FadeRoute(page: AnalysisScreen(
+                      file: args['file'],
+                      fileName: args['fileName'],
+                    ));
+                  }
                   return FadeRoute(page: const AnalysisScreen());
                 case '/results':
-                  return ScaleUpRoute(page: const ResultsScreen());
+                  final resultArgs = settings.arguments;
+                  if (resultArgs is AnalysisResult) {
+                    return ScaleUpRoute(page: ResultsScreen(analysisResult: resultArgs));
+                  }
+                  return FadeRoute(page: const UploadScreen());
                 case '/evidence':
-                  return SlideRightRoute(page: const EvidenceScreen());
+                  final evidenceArgs = settings.arguments;
+                  if (evidenceArgs is AnalysisResult) {
+                    return SlideRightRoute(page: EvidenceScreen(analysisResult: evidenceArgs));
+                  }
+                  return FadeRoute(page: const UploadScreen());
                 case '/report':
-                  return SlideRightRoute(page: const ReportScreen());
+                  final reportArgs = settings.arguments;
+                  if (reportArgs is AnalysisResult) {
+                    return SlideRightRoute(page: ReportScreen(analysisResult: reportArgs));
+                  }
+                  return FadeRoute(page: const UploadScreen());
                 default:
                   return FadeRoute(page: const SplashScreen());
               }

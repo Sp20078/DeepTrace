@@ -28,6 +28,22 @@ class _StaggeredEntryState extends State<StaggeredEntry>
   @override
   void initState() {
     super.initState();
+    _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant StaggeredEntry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.children.length != widget.children.length) {
+      // Children count changed — dispose old controllers and recreate
+      for (final c in _controllers) {
+        c.dispose();
+      }
+      _initControllers();
+    }
+  }
+
+  void _initControllers() {
     _controllers = List.generate(widget.children.length, (i) {
       return AnimationController(
         vsync: this,

@@ -1,21 +1,32 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/layout/responsive_wrapper.dart';
-import '../../models/investigation.dart';
-import '../../widgets/timeline.dart';
+import '../../services/api_service.dart';
 import '../../widgets/staggered_entry.dart';
 
 class EvidenceScreen extends StatelessWidget {
-  const EvidenceScreen({super.key});
+  final AnalysisResult? analysisResult;
+
+  const EvidenceScreen({super.key, this.analysisResult});
 
   @override
   Widget build(BuildContext context) {
-    final investigation = MockData.demoInvestigation;
+    if (analysisResult == null) {
+      return Scaffold(body: Center(child: Text('No evidence data')));
+    }
     final padding = ResponsiveWrapper.padding(context);
     final isWide = ResponsiveWrapper.isDesktop(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.background : AppColorsLight.background;
     final textSecondary = isDark ? AppColors.textSecondary : AppColorsLight.textSecondary;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
 
     return Scaffold(
       backgroundColor: bg,
@@ -36,158 +47,56 @@ class EvidenceScreen extends StatelessWidget {
                 staggerDelay: const Duration(milliseconds: 80),
                 children: [
                   const SizedBox(height: 16),
-                  _buildMediaPreview(context),
-                  const SizedBox(height: 20),
-                  _buildDetectionCallout(context),
-                  const SizedBox(height: 24),
-                  if (isWide)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: InvestigationTimeline(
-                            timestamps: investigation.suspiciousTimestamps,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          flex: 2,
-                          child: _buildFrameThumbnails(context),
-                        ),
-                      ],
-                    )
-                  else ...[
-                    InvestigationTimeline(
-                      timestamps: investigation.suspiciousTimestamps,
+
+                  // Detection callout
+                  if (analysisResult!.suspiciousFrames.isNotEmpty)
+                    _buildDetectionCallout(context),
+
+                  if (analysisResult!.suspiciousFrames.isNotEmpty)
+                    const SizedBox(height: 24),
+
+                  // Suspicious segments
+                  if (analysisResult!.suspiciousSegments.isNotEmpty) ...[
+                    Text('Suspicious Segments', style: AppTheme.headingSmall),
+                    const SizedBox(height: 12),
+                    ...analysisResult!.suspiciousSegments.map(
+                      (seg) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildSegmentCard(context, seg),
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    _buildFrameThumbnails(context),
                   ],
+
+                  // Suspicious frames
+                  if (analysisResult!.suspiciousFrames.isNotEmpty) ...[
+                    Text('Flagged Frames', style: AppTheme.headingSmall),
+                    const SizedBox(height: 6),
+                    Text('Frames with highest manipulation scores',
+                        style: AppTheme.bodySmall.copyWith(color: textMuted)),
+                    const SizedBox(height: 16),
+                    _buildFrameThumbnails(context),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // No evidence
+                  if (analysisResult!.suspiciousFrames.isEmpty)
+                    _buildNoEvidenceCard(context),
+
+                  // Frame-level results (for video)
+                  if (analysisResult!.mediaCategory == 'video' &&
+                      analysisResult!.frameResults.isNotEmpty) ...[
+                    Text('Frame-Level Results', style: AppTheme.headingSmall),
+                    const SizedBox(height: 12),
+                    _buildFrameResultsList(context),
+                    const SizedBox(height: 24),
+                  ],
+
                   const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaPreview(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
-    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
-    final card = isDark ? AppColors.card : AppColorsLight.card;
-    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
-    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
-    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
-    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
-
-    return Container(
-      width: double.infinity,
-      height: 240,
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder, width: 1),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            CustomPaint(size: Size.infinite, painter: _EvidenceGridPainter(color: primary)),
-
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: card,
-                      border: Border.all(color: textMuted.withOpacity(0.3)),
-                    ),
-                    child: Icon(Icons.play_arrow_rounded, size: 36, color: textTertiary),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('suspect_video.mp4',
-                      style: AppTheme.bodySmall.copyWith(color: textTertiary)),
-                ],
-              ),
-            ),
-
-            // Heatmap overlay
-            Positioned(
-              top: 50,
-              right: 80,
-              width: 110,
-              height: 110,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: highRisk.withOpacity(0.6), width: 2),
-                  gradient: RadialGradient(colors: [
-                    highRisk.withOpacity(0.25),
-                    highRisk.withOpacity(0.05),
-                    Colors.transparent,
-                  ]),
-                ),
-              ),
-            ),
-
-            // FLAGGED annotation
-            Positioned(
-              top: 30,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: highRisk.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [BoxShadow(color: highRisk.withOpacity(0.3), blurRadius: 8)],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text('FLAGGED',
-                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1)),
-                  ],
-                ),
-              ),
-            ),
-
-            Positioned(top: 10, left: 10, child: _cornerBracket(context)),
-            Positioned(top: 10, right: 10, child: _cornerBracket(context, mirror: true)),
-            Positioned(bottom: 10, left: 10, child: _cornerBracket(context, flip: true)),
-            Positioned(bottom: 10, right: 10, child: _cornerBracket(context, mirror: true, flip: true)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cornerBracket(BuildContext context, {bool mirror = false, bool flip = false}) {
-    final primary = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.primary
-        : AppColorsLight.primary;
-    return Container(
-      width: 22,
-      height: 22,
-      decoration: BoxDecoration(
-        border: Border(
-          top: !flip ? BorderSide(color: primary, width: 1.5) : BorderSide.none,
-          bottom: flip ? BorderSide(color: primary, width: 1.5) : BorderSide.none,
-          left: !mirror ? BorderSide(color: primary, width: 1.5) : BorderSide.none,
-          right: mirror ? BorderSide(color: primary, width: 1.5) : BorderSide.none,
         ),
       ),
     );
@@ -209,8 +118,7 @@ class EvidenceScreen extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
               color: highRisk.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
@@ -222,11 +130,11 @@ class EvidenceScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Suspicious Region Detected',
+                Text('Suspicious Frames Detected',
                     style: AppTheme.subtitleMedium.copyWith(color: highRisk)),
                 const SizedBox(height: 6),
                 Text(
-                  'Potential manipulation artifacts identified around facial boundaries.',
+                  '${analysisResult!.suspiciousFrames.length} frame(s) flagged with elevated manipulation scores.',
                   style: AppTheme.bodyMedium.copyWith(color: textSecondary, fontSize: 13),
                 ),
               ],
@@ -237,20 +145,52 @@ class EvidenceScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFrameThumbnails(BuildContext context) {
-    final frames = [
-      _FrameData('00:02', false),
-      _FrameData('00:05', false),
-      _FrameData('00:08', false),
-      _FrameData('00:11', false),
-      _FrameData('00:14', true),
-      _FrameData('00:16', true),
-      _FrameData('00:19', false),
-      _FrameData('00:22', false),
-    ];
-
+  Widget _buildSegmentCard(BuildContext context, dynamic segment) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = isDark ? AppColors.primary : AppColorsLight.primary;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textPrimary = isDark ? AppColors.textPrimary : AppColorsLight.textPrimary;
+
+    final startFmt = segment['start_fmt'] ?? '${segment['start']}s';
+    final endFmt = segment['end_fmt'] ?? '${segment['end']}s';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: highRisk.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8, height: 40,
+            decoration: BoxDecoration(
+              color: highRisk,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Suspicious Segment',
+                  style: AppTheme.subtitleMedium.copyWith(color: highRisk)),
+              const SizedBox(height: 4),
+              Text('$startFmt - $endFmt',
+                  style: AppTheme.bodyLarge.copyWith(
+                      color: textPrimary, fontWeight: FontWeight.w600, fontSize: 16)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFrameThumbnails(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
     final highRiskBg = isDark ? AppColors.highRiskBg : AppColorsLight.highRiskBg;
     final surfaceElevated = isDark ? AppColors.surfaceElevated : AppColorsLight.surfaceElevated;
@@ -258,104 +198,158 @@ class EvidenceScreen extends StatelessWidget {
     final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
     final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: primary),
-            ),
-            const SizedBox(width: 10),
-            Text('Frame Analysis', style: AppTheme.subtitleMedium),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text('Tap suspicious frames to inspect',
-            style: AppTheme.bodySmall.copyWith(color: textMuted)),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 100,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: frames.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final frame = frames[index];
-              return Column(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 80,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      color: frame.isSuspicious ? highRiskBg : surfaceElevated,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: frame.isSuspicious ? highRisk : cardBorder,
-                        width: frame.isSuspicious ? 2 : 1,
-                      ),
-                      boxShadow: frame.isSuspicious
-                          ? [BoxShadow(color: highRisk.withOpacity(0.25), blurRadius: 10, spreadRadius: 1)]
-                          : [],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          frame.isSuspicious ? Icons.warning_amber_rounded : Icons.image_rounded,
-                          color: frame.isSuspicious ? highRisk : textMuted,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    frame.timestamp,
-                    style: AppTheme.bodySmall.copyWith(
-                      color: frame.isSuspicious ? highRisk : textTertiary,
-                      fontSize: 10,
-                      fontWeight: frame.isSuspicious ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+    final frames = analysisResult!.suspiciousFrames;
+
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: frames.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final frame = frames[index];
+          final score = (frame['score'] * 100).round();
+          final timestamp = frame['timestamp_fmt'] ?? '${frame['timestamp']}s';
+
+          return Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 80, height: 68,
+                decoration: BoxDecoration(
+                  color: highRiskBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: highRisk, width: 2),
+                  boxShadow: [
+                    BoxShadow(color: highRisk.withOpacity(0.25), blurRadius: 10, spreadRadius: 1)
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: highRisk, size: 22),
+                    const SizedBox(height: 2),
+                    Text('$score%', style: TextStyle(
+                        color: highRisk, fontSize: 10, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(timestamp, style: AppTheme.bodySmall.copyWith(
+                  color: highRisk, fontSize: 10, fontWeight: FontWeight.w700)),
+            ],
+          );
+        },
+      ),
     );
   }
-}
 
-class _FrameData {
-  final String timestamp;
-  final bool isSuspicious;
-  const _FrameData(this.timestamp, this.isSuspicious);
-}
+  Widget _buildNoEvidenceCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? AppColors.surface : AppColorsLight.surface;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final success = isDark ? AppColors.success : AppColorsLight.success;
 
-class _EvidenceGridPainter extends CustomPainter {
-  final Color color;
-  _EvidenceGridPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(0.03)
-      ..strokeWidth = 0.5;
-
-    const spacing = 30.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle_outline_rounded, color: success, size: 48),
+          const SizedBox(height: 16),
+          Text('No Suspicious Evidence Found',
+              style: AppTheme.subtitleMedium.copyWith(color: success)),
+          const SizedBox(height: 8),
+          Text(
+            'No frames were flagged with elevated manipulation scores.',
+            style: AppTheme.bodyMedium.copyWith(color: textMuted, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  Widget _buildFrameResultsList(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? AppColors.card : AppColorsLight.card;
+    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
+    final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
+    final textTertiary = isDark ? AppColors.textTertiary : AppColorsLight.textTertiary;
+    final highRisk = isDark ? AppColors.highRisk : AppColorsLight.highRisk;
+    final lowRisk = isDark ? AppColors.lowRisk : AppColorsLight.lowRisk;
+
+    // Show only frames with faces
+    final framesWithFaces = analysisResult!.frameResults
+        .where((f) => f['faces_found'] > 0)
+        .toList();
+
+    if (framesWithFaces.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        children: framesWithFaces.take(20).map((frame) {
+          final score = (frame['manipulation_score'] * 100).round();
+          final timestamp = frame['timestamp_fmt'] ?? '';
+          final isSuspicious = frame['manipulation_score'] >= 0.6;
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: cardBorder, width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32, height: 32,
+                  decoration: BoxDecoration(
+                    color: isSuspicious
+                        ? highRisk.withOpacity(0.15)
+                        : lowRisk.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isSuspicious ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+                    color: isSuspicious ? highRisk : lowRisk,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(timestamp, style: AppTheme.bodyMedium.copyWith(
+                          fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text('${frame['faces_found']} face(s) detected',
+                          style: AppTheme.bodySmall.copyWith(color: textMuted, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                Text('$score%',
+                    style: AppTheme.bodyLarge.copyWith(
+                        color: isSuspicious ? highRisk : textTertiary,
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
