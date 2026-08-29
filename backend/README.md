@@ -190,7 +190,7 @@ backend/
 | **Phase 1** | ✅ Done | Basic FastAPI server, health endpoint |
 | **Phase 2** | ✅ Done | File upload endpoint with validation |
 | **Phase 3** | ✅ Done | Analysis endpoint with mock pipeline |
-| **Phase 4** | 🔜 Next | OpenCV preprocessing, AI/ML model integration |
+| **Phase 4** | 🔜 Next | Face detection, AI/ML model integration |
 | **Phase 5** | 🔜 | Risk scoring, evidence generation, forensic reports |
 | **Phase 6** | 🔜 | Database, authentication, production hardening |
 
@@ -208,7 +208,10 @@ backend/
 
 ## 🔬 Media Processor (OpenCV)
 
-The `services/media_processor.py` module provides OpenCV-based media reading:
+The `services/media_processor.py` module provides OpenCV-based media reading
+and frame extraction.
+
+### Metadata Extraction
 
 | Function | Purpose |
 |----------|---------|
@@ -216,6 +219,18 @@ The `services/media_processor.py` module provides OpenCV-based media reading:
 | `read_video_info(path)` | Extract width, height, FPS, frame count, duration, codec from a video |
 | `read_media_info(path)` | Auto-detect image vs video and extract metadata |
 
+### Frame Extraction
+
+| Function | Purpose |
+|----------|---------|
+| `extract_frames(path, fps=N)` | Extract N frames per second |
+| `extract_frames(path, interval=N)` | Extract one frame every N seconds |
+| `extract_frames(path, max_frames=N)` | Extract exactly N evenly-spaced frames |
+| `extract_single_frame(path, timestamp=N)` | Extract a single frame at N seconds |
+| `cleanup_frames(output_dir)` | Delete extracted frame files to free disk |
+
+Frame metadata includes: `frame_number`, `timestamp`, `timestamp_fmt`, `width`, `height`, `path`.
+
 All functions raise `MediaError` for invalid/corrupted/missing files.
-This module does NOT detect faces, run AI models, or extract frames yet.
-Those capabilities will be added in future phases.
+Safety limit: max 500 frames per extraction (configurable via `MAX_FRAMES`).
+This module does NOT detect faces or run AI models yet.
