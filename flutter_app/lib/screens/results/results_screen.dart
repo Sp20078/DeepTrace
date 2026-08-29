@@ -45,7 +45,7 @@ class ResultsScreen extends StatelessWidget {
                   color: AppColors.highRiskBg,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.highRisk.withOpacity(0.2),
+                    color: AppColors.highRisk.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),

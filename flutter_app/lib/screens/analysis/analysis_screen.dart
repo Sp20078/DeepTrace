@@ -15,6 +15,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   int _currentStep = -1;
   bool _isComplete = false;
   late AnimationController _scanController;
+  Timer? _analysisTimer;
 
   final List<_AnalysisStep> _steps = [
     _AnalysisStep('File integrity verified', true),
@@ -41,7 +42,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     const stepInterval = Duration(milliseconds: 800);
     final startTime = DateTime.now();
 
-    Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    _analysisTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       final elapsed = DateTime.now().difference(startTime);
       final p = (elapsed.inMilliseconds / totalDuration.inMilliseconds)
           .clamp(0.0, 1.0);
@@ -73,6 +74,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   @override
   void dispose() {
+    _analysisTimer?.cancel();
     _scanController.dispose();
     super.dispose();
   }

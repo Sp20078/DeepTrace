@@ -115,7 +115,7 @@ class UploadScreen extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.primary.withOpacity(0.2),
+            color: AppColors.primary.withValues(alpha: 0.2),
             width: 2,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
@@ -125,7 +125,7 @@ class UploadScreen extends StatelessWidget {
             Icon(
               Icons.cloud_upload_rounded,
               size: 48,
-              color: AppColors.primary.withOpacity(0.6),
+              color: AppColors.primary.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 16),
             Text(

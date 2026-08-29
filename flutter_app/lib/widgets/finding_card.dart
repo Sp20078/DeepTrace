@@ -19,7 +19,7 @@ class FindingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: finding.isCritical
-              ? AppColors.highRisk.withOpacity(0.3)
+              ? AppColors.highRisk.withValues(alpha: 0.3)
               : AppColors.cardBorder,
           width: 1,
         ),

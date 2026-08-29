@@ -65,22 +65,7 @@ class Investigation {
     required this.conclusion,
   });
 
-  static RiskLevel _riskFromScore(int score) {
-    if (score >= 70) return RiskLevel.high;
-    if (score >= 40) return RiskLevel.medium;
-    return RiskLevel.low;
-  }
 
-  static String _riskLabel(RiskLevel level) {
-    switch (level) {
-      case RiskLevel.high:
-        return 'HIGH RISK';
-      case RiskLevel.medium:
-        return 'MEDIUM RISK';
-      case RiskLevel.low:
-        return 'LOW RISK';
-    }
-  }
 }
 
 class RecentInvestigation {
@@ -94,12 +79,8 @@ class RecentInvestigation {
     required this.riskLevel,
   });
 
-  String get riskLabel => Investigation._riskLevel == riskLevel
-      ? Investigation._riskLabel(riskLevel)
-      : _label(riskLevel);
-
-  String _label(RiskLevel level) {
-    switch (level) {
+  String get riskLabel {
+    switch (riskLevel) {
       case RiskLevel.high:
         return 'HIGH RISK';
       case RiskLevel.medium:

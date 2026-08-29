@@ -114,7 +114,7 @@ class _SplashScreenState extends State<SplashScreen>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
+          color: AppColors.primary.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -127,7 +127,7 @@ class _SplashScreenState extends State<SplashScreen>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primary.withOpacity(0.4),
+                color: AppColors.primary.withValues(alpha: 0.4),
                 width: 1.5,
               ),
             ),
@@ -145,7 +145,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Container(
               width: 1,
               height: 12,
-              color: AppColors.primary.withOpacity(0.6),
+              color: AppColors.primary.withValues(alpha: 0.6),
             ),
           ),
           Positioned(
@@ -153,7 +153,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Container(
               width: 1,
               height: 12,
-              color: AppColors.primary.withOpacity(0.6),
+              color: AppColors.primary.withValues(alpha: 0.6),
             ),
           ),
           Positioned(
@@ -161,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Container(
               width: 12,
               height: 1,
-              color: AppColors.primary.withOpacity(0.6),
+              color: AppColors.primary.withValues(alpha: 0.6),
             ),
           ),
           Positioned(
@@ -169,7 +169,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Container(
               width: 12,
               height: 1,
-              color: AppColors.primary.withOpacity(0.6),
+              color: AppColors.primary.withValues(alpha: 0.6),
             ),
           ),
         ],

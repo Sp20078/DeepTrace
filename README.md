@@ -8,7 +8,7 @@
 
 ---
 
-## 📖 About
+ur## 📖 About
 
 DeepTrace is an AI-powered digital media forensics platform that goes beyond binary real/fake classification. It provides an **explainable investigation experience** — surfacing risk scores, suspicious timestamps, evidence signals, and forensic-style reports so that analysts, journalists, and everyday users can **understand why** a piece of media may have been manipulated.
 

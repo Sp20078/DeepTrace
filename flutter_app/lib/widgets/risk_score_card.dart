@@ -56,7 +56,7 @@ class RiskScoreCard extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _riskColor.withOpacity(0.3),
+          color: _riskColor.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -69,7 +69,7 @@ class RiskScoreCard extends StatelessWidget {
               color: _riskBgColor,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: _riskColor.withOpacity(0.3),
+                color: _riskColor.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),

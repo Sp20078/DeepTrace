@@ -91,13 +91,13 @@ class EvidenceScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.highRisk.withOpacity(0.6),
+                  color: AppColors.highRisk.withValues(alpha: 0.6),
                   width: 2,
                 ),
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.highRisk.withOpacity(0.25),
-                    AppColors.highRisk.withOpacity(0.05),
+                    AppColors.highRisk.withValues(alpha: 0.25),
+                    AppColors.highRisk.withValues(alpha: 0.05),
                     Colors.transparent,
                   ],
                 ),
@@ -112,7 +112,7 @@ class EvidenceScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.highRisk.withOpacity(0.9),
+                color: AppColors.highRisk.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
@@ -183,7 +183,7 @@ class EvidenceScreen extends StatelessWidget {
         color: AppColors.highRiskBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.highRisk.withOpacity(0.2),
+          color: AppColors.highRisk.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -267,7 +267,7 @@ class EvidenceScreen extends StatelessWidget {
                       boxShadow: frame.isSuspicious
                           ? [
                               BoxShadow(
-                                color: AppColors.highRisk.withOpacity(0.3),
+                                color: AppColors.highRisk.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 spreadRadius: 1,
                               )
