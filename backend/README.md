@@ -173,7 +173,8 @@ backend/
 ├── services/
 │   ├── __init__.py
 │   ├── file_handler.py      # File validation, storage, metadata
-│   └── analysis.py          # Analysis pipeline (mock -> real)
+│   ├── analysis.py          # Analysis pipeline (mock -> real)
+│   └── media_processor.py   # OpenCV media reading & metadata extraction
 ├── utils/                   # Utility functions (future phases)
 │   └── __init__.py
 ├── storage/                 # Temporary file storage (future phases)
@@ -202,3 +203,19 @@ backend/
 - Run `uvicorn main:app --reload` during development for auto-reload on code changes.
 - Uploaded files are saved to `backend/uploads/` with UUID-based names.
 - Future routers (analysis, reports) are added in `routers/` and registered in `main.py`.
+
+---
+
+## 🔬 Media Processor (OpenCV)
+
+The `services/media_processor.py` module provides OpenCV-based media reading:
+
+| Function | Purpose |
+|----------|---------|
+| `read_image_info(path)` | Extract width, height, channels, format from an image |
+| `read_video_info(path)` | Extract width, height, FPS, frame count, duration, codec from a video |
+| `read_media_info(path)` | Auto-detect image vs video and extract metadata |
+
+All functions raise `MediaError` for invalid/corrupted/missing files.
+This module does NOT detect faces, run AI models, or extract frames yet.
+Those capabilities will be added in future phases.
