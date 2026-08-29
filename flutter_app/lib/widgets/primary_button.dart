@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 
-class PrimaryButton extends StatelessWidget {
+class PrimaryButton extends StatefulWidget {
   final String label;
   final VoidCallback onPressed;
   final IconData? icon;
@@ -18,42 +18,122 @@ class PrimaryButton extends StatelessWidget {
   });
 
   @override
+  State<PrimaryButton> createState() => _PrimaryButtonState();
+}
+
+class _PrimaryButtonState extends State<PrimaryButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressController;
+  late Animation<double> _scaleAnim;
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: isSmall ? 40 : 52,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isOutlined ? Colors.transparent : AppColors.primary,
-          foregroundColor: isOutlined ? AppColors.primary : Colors.white,
-          elevation: 0,
-          padding: EdgeInsets.symmetric(
-            horizontal: isSmall ? 16 : 24,
-            vertical: 0,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: isOutlined
-                ? const BorderSide(color: AppColors.primary, width: 1.5)
-                : BorderSide.none,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: isSmall ? 16 : 20),
-              SizedBox(width: isSmall ? 6 : 8),
-            ],
-            Text(
-              label,
-              style: (isSmall ? AppTheme.labelLarge : AppTheme.subtitleMedium)
-                  .copyWith(
-                color: isOutlined ? AppColors.primary : Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+    final bgColor = widget.isOutlined ? Colors.transparent : AppColors.primary;
+    final fgColor = widget.isOutlined ? AppColors.primary : Colors.white;
+    final borderColor =
+        widget.isOutlined ? AppColors.primary : Colors.transparent;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: (_) {
+          _pressController.forward();
+          setState(() => _isPressed = true);
+        },
+        onTapUp: (_) {
+          _pressController.reverse();
+          setState(() => _isPressed = false);
+          widget.onPressed();
+        },
+        onTapCancel: () {
+          _pressController.reverse();
+          setState(() => _isPressed = false);
+        },
+        child: AnimatedBuilder(
+          animation: _scaleAnim,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnim.value,
+              child: child,
+            );
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: widget.isSmall ? 40 : 52,
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isSmall ? 16 : 24,
             ),
-          ],
+            decoration: BoxDecoration(
+              color: _isHovered && !widget.isOutlined
+                  ? AppColors.primaryDark
+                  : bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _isHovered
+                    ? AppColors.primaryLight
+                    : borderColor,
+                width: widget.isOutlined ? 1.5 : 0,
+              ),
+              boxShadow: [
+                if (_isHovered && !widget.isOutlined)
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.35),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                if (_isPressed && !widget.isOutlined)
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.5),
+                    blurRadius: 24,
+                    spreadRadius: 0,
+                  ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(
+                    widget.icon,
+                    size: widget.isSmall ? 16 : 20,
+                    color: fgColor,
+                  ),
+                  SizedBox(width: widget.isSmall ? 6 : 8),
+                ],
+                Text(
+                  widget.label,
+                  style:
+                      (widget.isSmall ? AppTheme.labelLarge : AppTheme.subtitleMedium)
+                          .copyWith(
+                    color: fgColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
