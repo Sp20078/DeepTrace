@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -11,36 +12,44 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
+    with TickerProviderStateMixin {
+  late AnimationController _mainController;
+  late AnimationController _ringController;
+  late AnimationController _scanController;
+  late AnimationController _glowController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+
+    // Master fade+scale for the whole content
+    _mainController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+
+    // Rotating ring
+    _ringController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4000),
+    )..repeat();
+
+    // Scan line sweep
+    _scanController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
-    );
+    )..repeat();
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
+    // Glow pulse
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOutBack),
-      ),
-    );
+    _mainController.forward();
 
-    _controller.forward();
-
-    Timer(const Duration(milliseconds: 2800), () {
+    // Navigate after delay
+    Timer(const Duration(milliseconds: 3200), () {
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/dashboard');
       }
@@ -49,7 +58,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _mainController.dispose();
+    _ringController.dispose();
+    _scanController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
@@ -57,123 +69,259 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Forensic scan icon
-                _buildScanIcon(),
-                const SizedBox(height: 32),
-
-                // App name
-                Text(
-                  AppConstants.appName,
-                  style: AppTheme.monospaceLarge.copyWith(
-                    letterSpacing: 8,
-                    fontSize: 42,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Subtitle
-                Text(
-                  AppConstants.appSubtitle.toUpperCase(),
-                  style: AppTheme.labelLarge.copyWith(
-                    color: AppColors.textTertiary,
-                    letterSpacing: 4,
-                    fontSize: 12,
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // Tagline
-                Text(
-                  AppConstants.splashTagline,
-                  style: AppTheme.bodyMedium.copyWith(
-                    color: AppColors.textMuted,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScanIcon() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.3),
-          width: 2,
-        ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
+      body: Stack(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.4),
-                width: 1.5,
+          // Background grid pattern
+          CustomPaint(
+            size: Size.infinite,
+            painter: _GridPainter(
+              color: AppColors.primary.withOpacity(0.04),
+            ),
+          ),
+
+          // Main centered content
+          Center(
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: _mainController,
+                curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
               ),
-            ),
-          ),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary,
-            ),
-          ),
-          Positioned(
-            top: 18,
-            child: Container(
-              width: 1,
-              height: 12,
-              color: AppColors.primary.withValues(alpha: 0.6),
-            ),
-          ),
-          Positioned(
-            bottom: 18,
-            child: Container(
-              width: 1,
-              height: 12,
-              color: AppColors.primary.withValues(alpha: 0.6),
-            ),
-          ),
-          Positioned(
-            left: 18,
-            child: Container(
-              width: 12,
-              height: 1,
-              color: AppColors.primary.withValues(alpha: 0.6),
-            ),
-          ),
-          Positioned(
-            right: 18,
-            child: Container(
-              width: 12,
-              height: 1,
-              color: AppColors.primary.withValues(alpha: 0.6),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+                  CurvedAnimation(
+                    parent: _mainController,
+                    curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Animated forensic icon
+                    _buildAnimatedIcon(),
+                    const SizedBox(height: 36),
+
+                    // App name (staggered in)
+                    _buildStaggeredText(
+                      AppConstants.appName,
+                      AppTheme.monospaceLarge.copyWith(
+                        letterSpacing: 8,
+                        fontSize: 44,
+                      ),
+                      delay: 0.3,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Subtitle (staggered in)
+                    _buildStaggeredText(
+                      AppConstants.appSubtitle.toUpperCase(),
+                      AppTheme.labelLarge.copyWith(
+                        color: AppColors.textTertiary,
+                        letterSpacing: 4,
+                        fontSize: 12,
+                      ),
+                      delay: 0.5,
+                    ),
+
+                    const SizedBox(height: 44),
+
+                    // Tagline (staggered in)
+                    _buildStaggeredText(
+                      AppConstants.splashTagline,
+                      AppTheme.bodyMedium.copyWith(
+                        color: AppColors.textMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      delay: 0.7,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildStaggeredText(String text, TextStyle style, {double delay = 0}) {
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: _mainController,
+        curve: Interval(delay, (delay + 0.4).clamp(0, 1), curve: Curves.easeOut),
+      ),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.3),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _mainController,
+            curve: Interval(delay, (delay + 0.5).clamp(0, 1), curve: Curves.easeOutCubic),
+          ),
+        ),
+        child: Text(text, style: style),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedIcon() {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer rotating ring
+          AnimatedBuilder(
+            animation: _ringController,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _ringController.value * 2 * math.pi,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.2),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CustomPaint(
+                    painter: _ArcPainter(
+                      color: AppColors.primary.withOpacity(0.6),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Pulsing glow ring
+          AnimatedBuilder(
+            animation: _glowController,
+            builder: (context, child) {
+              return Container(
+                width: 72 + _glowController.value * 6,
+                height: 72 + _glowController.value * 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.15 + _glowController.value * 0.15),
+                    width: 1,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Inner static ring
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.3),
+                width: 1.5,
+              ),
+            ),
+          ),
+
+          // Center dot
+          AnimatedBuilder(
+            animation: _glowController,
+            builder: (context, child) {
+              return Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.4 + _glowController.value * 0.4),
+                      blurRadius: 8 + _glowController.value * 8,
+                      spreadRadius: _glowController.value * 3,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Crosshair lines
+          Positioned(
+            top: 16,
+            child: Container(width: 1, height: 14, color: AppColors.primary.withOpacity(0.5)),
+          ),
+          Positioned(
+            bottom: 16,
+            child: Container(width: 1, height: 14, color: AppColors.primary.withOpacity(0.5)),
+          ),
+          Positioned(
+            left: 16,
+            child: Container(width: 14, height: 1, color: AppColors.primary.withOpacity(0.5)),
+          ),
+          Positioned(
+            right: 16,
+            child: Container(width: 14, height: 1, color: AppColors.primary.withOpacity(0.5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Draws a small arc segment on the circle
+class _ArcPainter extends CustomPainter {
+  final Color color;
+
+  _ArcPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromCircle(
+      center: Offset(size.width / 2, size.height / 2),
+      radius: size.width / 2,
+    );
+
+    canvas.drawArc(rect, -math.pi / 4, math.pi / 2, false, paint);
+    canvas.drawArc(rect, math.pi * 3 / 4, math.pi / 2, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcPainter old) => false;
+}
+
+/// Draws a subtle background grid
+class _GridPainter extends CustomPainter {
+  final Color color;
+
+  _GridPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 0.5;
+
+    const spacing = 40.0;
+
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GridPainter old) => false;
 }
