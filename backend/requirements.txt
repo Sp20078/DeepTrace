@@ -1,7 +1,9 @@
-# DeepTrace Backend — Phase 1 Dependencies
+# DeepTrace Backend — Phase 2 Dependencies
 # ==========================================
-# Only the essentials to run a FastAPI server.
+# Phase 1: FastAPI server basics
+# Phase 2: File upload support (python-multipart)
 # Future phases will add: torch, opencv-python, numpy, Pillow, etc.
 
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
+python-multipart==0.0.9

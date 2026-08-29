@@ -8,7 +8,7 @@
 
 - **Python 3.8+** (tested with 3.13)
 - **pip** (comes with Python)
-- **FFmpeg** (for future video processing — not required for Phase 1)
+- **FFmpeg** (for future video processing — not required yet)
 
 ---
 
@@ -89,36 +89,73 @@ Expected response:
 }
 ```
 
+### File upload endpoint
+
+```bash
+curl -X POST http://127.0.0.1:8000/upload \
+  -F "file=@sample_image.jpg"
+```
+
+Expected response (success):
+```json
+{
+  "success": true,
+  "message": "File uploaded successfully.",
+  "file_id": "a1b2c3d4e5f6.jpg",
+  "filename": "sample_image.jpg",
+  "media_type": "image/jpeg",
+  "media_category": "image",
+  "file_size": 245760,
+  "file_size_mb": 0.23,
+  "stored_path": "backend/uploads/a1b2c3d4e5f6.jpg"
+}
+```
+
+Expected response (error — unsupported format):
+```json
+{
+  "detail": "Unsupported file type: 'application/pdf'. Supported formats: AVI, BMP, JPEG, MKV, MOV, MP4, PNG, TIFF, WebM, WebP"
+}
+```
+
+**Supported formats:**
+- Images: JPEG, PNG, WebP, BMP, TIFF
+- Videos: MP4, MOV, AVI, WebM, MKV
+- **Max size:** 100 MB
+
 ---
 
 ## 📁 Project Structure
 
 ```
 backend/
-├── main.py              # FastAPI application entry point
-├── requirements.txt     # Python dependencies
-├── README.md            # This file
-├── .gitignore           # Git ignore rules
-├── services/            # Business logic (future phases)
+├── main.py                  # FastAPI application entry point
+├── requirements.txt         # Python dependencies
+├── README.md                # This file
+├── .gitignore               # Git ignore rules
+├── routers/
+│   ├── __init__.py
+│   └── upload.py            # POST /upload endpoint
+├── services/
+│   ├── __init__.py
+│   └── file_handler.py      # File validation, storage, metadata
+├── utils/                   # Utility functions (future phases)
 │   └── __init__.py
-├── utils/               # Utility functions (future phases)
-│   └── __init__.py
-└── storage/             # Temporary file storage (future phases)
+├── storage/                 # Temporary file storage (future phases)
+└── uploads/                 # Uploaded files saved here
 ```
 
 ---
 
-## 🔮 Future Phases
+## 🔮 Phases
 
-| Phase | What's Added |
-|-------|-------------|
-| **Phase 2** | File upload endpoint, OpenCV preprocessing |
-| **Phase 3** | AI/ML model integration (PyTorch deepfake detection) |
-| **Phase 4** | Risk scoring, evidence generation, forensic reports |
-| **Phase 5** | Database, authentication, production hardening |
-
-New endpoints will be added via FastAPI routers in a `routers/` directory.
-Dependencies will be added to `requirements.txt` as needed.
+| Phase | Status | What's Added |
+|-------|--------|-------------|
+| **Phase 1** | ✅ Done | Basic FastAPI server, health endpoint |
+| **Phase 2** | ✅ Done | File upload endpoint with validation |
+| **Phase 3** | 🔜 Next | OpenCV preprocessing, AI/ML model integration |
+| **Phase 4** | 🔜 | Risk scoring, evidence generation, forensic reports |
+| **Phase 5** | 🔜 | Database, authentication, production hardening |
 
 ---
 
@@ -127,4 +164,5 @@ Dependencies will be added to `requirements.txt` as needed.
 - The app uses **CORS middleware** configured to allow all origins (for development).
   In production, restrict `allow_origins` to your frontend domain.
 - Run `uvicorn main:app --reload` during development for auto-reload on code changes.
-- The `storage/` directory is reserved for temporary file handling in future phases.
+- Uploaded files are saved to `backend/uploads/` with UUID-based names.
+- Future routers (analysis, reports) are added in `routers/` and registered in `main.py`.

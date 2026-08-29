@@ -1,13 +1,13 @@
 """
 DeepTrace — AI Deepfake Investigator
 =====================================
-Backend entry point (Phase 1: Basic FastAPI Server)
+Backend entry point (Phase 2: File Upload API)
 
 This module creates and configures the FastAPI application instance.
-It provides basic endpoints to verify the server is running.
+It provides basic endpoints and mounts routers for file upload.
 
 Future phases will extend this file by:
-  - Adding routers for analysis, upload, reports, etc.
+  - Adding routers for analysis, reports, etc.
   - Connecting to AI/ML services (OpenCV, PyTorch models)
   - Adding database connections and authentication middleware
 """
@@ -16,6 +16,8 @@ import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from routers.upload import router as upload_router
 
 # ---------------------------------------------------------------------------
 # App Configuration
@@ -45,6 +47,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+# Register route modules. Each router defines a group of related endpoints.
+# New routers (analysis, reports, etc.) will be added here in future phases.
+app.include_router(upload_router)
 
 
 # ---------------------------------------------------------------------------
