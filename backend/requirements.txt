@@ -1,16 +1,32 @@
 # DeepTrace Backend — Dependencies
 # =========================================
-# Phase 1: FastAPI server basics
-# Phase 2: File upload support (python-multipart)
-# Phase 3: Analysis endpoint (real pipeline)
-# OpenCV/Media: opencv-python + numpy for media reading & processing
-# AI/ML: PyTorch + torchvision for deepfake detection
-# Model: EfficientNet-B0 (FaceForensics++ C23) - auto-downloaded on first run
+# Core: FastAPI server
+# Media: OpenCV for reading & processing
+# AI/ML: PyTorch + torchvision for model training & inference
+# Face Detection: facenet-pytorch (MTCNN) — much better than Haar cascades
+# Training: scikit-learn for metrics, matplotlib for plots (optional)
+# Calibration: sklearn for Platt scaling (alternative to custom impl)
 
+# ── Core ──────────────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
 python-multipart==0.0.9
+
+# ── Media Processing ──────────────────────────────────────
 opencv-python-headless==4.10.0.84
 numpy>=2.0.0
+
+# ── AI/ML ─────────────────────────────────────────────────
 torch>=2.0.0
 torchvision>=0.15.0
+
+# ── Face Detection (MTCNN) ────────────────────────────────
+facenet-pytorch>=2.5.3
+
+# ── Training & Evaluation ─────────────────────────────────
+scikit-learn>=1.3.0
+Pillow>=10.0.0
+
+# ── Optional: Visualization ───────────────────────────────
+# matplotlib>=3.7.0
+# seaborn>=0.12.0

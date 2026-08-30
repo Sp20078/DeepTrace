@@ -1,31 +1,30 @@
-# Virtual environments
-.venv/
-venv/
-env/
+# Uploads
+uploads/
 
-# Python cache
+# Model weights (large files, not tracked)
+model_weights/
+!model_weights/.gitignore
+
+# Training data
+data/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
+.venv/
+venv/
+env/
 *.egg-info/
-
-# Environment variables
-.env
-
-# Uploaded files and extracted frames
-uploads/
-
-# Model weights (downloaded automatically on first run)
-model_weights/
-models/
-*.pth
-*.pt
-*.onnx
-
-# OS files
-.DS_Store
-Thumbs.db
 
 # IDE
 .vscode/
 .idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
