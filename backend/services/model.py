@@ -1,7 +1,8 @@
 """
-DeepTrace Model Service — Clean Rebuild
-=========================================
-Loads the trained EfficientNet-B2 and runs inference.
+DeepTrace Model Service
+=======================
+Loads the trained deepfake classifier and runs inference.
+Supports EfficientNet-B2 and ViT-B/16 architectures.
 Applies Platt scaling calibration when available.
 """
 
@@ -50,8 +51,8 @@ def preprocess_face(face_rgb: np.ndarray) -> torch.Tensor:
     return _transform(face_rgb).unsqueeze(0)
 
 
-# ── Model Architecture ────────────────────────────────────────────────────
-class DeepfakeClassifier(nn.Module):
+# ── Model Architectures ────────────────────────────────────────────────────
+class EfficientNetB2Classifier(nn.Module):
     """EfficientNet-B2 binary classifier (real vs fake)."""
 
     def __init__(self):
@@ -68,6 +69,58 @@ class DeepfakeClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
+
+
+class ViTClassifier(nn.Module):
+    """Vision Transformer binary classifier (real vs fake).
+
+    Supports ViT-B/16, ViT-B/32, ViT-L/16 from torchvision.
+    """
+
+    VIT_BUILDERS = {
+        "vit_b_16": (models.vit_b_16, 768),
+        "vit_b_32": (models.vit_b_32, 768),
+        "vit_l_16": (models.vit_l_16, 1024),
+    }
+
+    def __init__(self, variant: str = "vit_b_16"):
+        super().__init__()
+        if variant not in self.VIT_BUILDERS:
+            raise ValueError(f"Unknown ViT variant: {variant}. "
+                             f"Choose from: {list(self.VIT_BUILDERS.keys())}")
+
+        builder, hidden_dim = self.VIT_BUILDERS[variant]
+        self.backbone = builder(weights=None)
+        # Replace the default 1000-class head with our binary classifier
+        self.backbone.heads = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(hidden_dim, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, 2),
+        )
+        self._variant = variant
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.backbone(x)
+
+
+# Architecture registry for lookup by name
+ARCHITECTURE_REGISTRY = {
+    "efficientnet_b2": EfficientNetB2Classifier,
+    "vit_b_16": lambda: ViTClassifier("vit_b_16"),
+    "vit_b_32": lambda: ViTClassifier("vit_b_32"),
+    "vit_l_16": lambda: ViTClassifier("vit_l_16"),
+}
+
+
+def create_classifier(architecture: str = "efficientnet_b2") -> nn.Module:
+    """Create a classifier by architecture name."""
+    builder = ARCHITECTURE_REGISTRY.get(architecture)
+    if builder is None:
+        raise ValueError(f"Unknown architecture: {architecture}. "
+                         f"Available: {list(ARCHITECTURE_REGISTRY.keys())}")
+    return builder()
 
 
 # ── Inference Engine ───────────────────────────────────────────────────────
@@ -101,7 +154,7 @@ class DeepfakeModel:
     """Singleton model wrapper for inference."""
 
     _instance: Optional["DeepfakeModel"] = None
-    _model: Optional[DeepfakeClassifier] = None
+    _model: Optional[nn.Module] = None
     _device: Optional[torch.device] = None
     _calibrator: Optional[PlattScaler] = None
 
@@ -122,10 +175,9 @@ class DeepfakeModel:
             self._device = torch.device("cpu")
             logger.info("Using CPU")
 
-        # Model
-        self._model = DeepfakeClassifier()
+        # Find and load weights — auto-detects architecture from checkpoint
         weights_path = self._find_weights()
-        self._load(weights_path)
+        self._model, self._model_name = self._load(weights_path)
         self._model.to(self._device)
         self._model.eval()
 
@@ -137,11 +189,18 @@ class DeepfakeModel:
         else:
             logger.warning("No calibrator found — using raw model outputs")
 
-        logger.info("Model ready on %s", self._device)
+        logger.info("Model ready on %s (%s)", self._device, self._model_name)
 
     def _find_weights(self) -> Path:
-        """Find the best available model weights. Returns (path, is_legacy)."""
-        # Prefer custom model
+        """Find the best available model weights."""
+        # Prefer ViT weights if they exist
+        vit_best = WEIGHTS_DIR / "vit_b_16_deeptrace_best.pth"
+        vit_final = WEIGHTS_DIR / "vit_b_16_deeptrace_final.pth"
+        if vit_best.exists():
+            return vit_best
+        if vit_final.exists():
+            return vit_final
+        # Then EfficientNet-B2
         if BEST_WEIGHTS.exists():
             return BEST_WEIGHTS
         if FINAL_WEIGHTS.exists():
@@ -161,53 +220,86 @@ class DeepfakeModel:
                 f"No model weights found. Train: python -m training.train --data data/processed"
             )
 
-    def _load(self, path: Path):
-        """Load weights into model. Handles both custom B2 and legacy B0."""
+    def _load(self, path: Path) -> tuple[nn.Module, str]:
+        """Load weights into model. Auto-detects architecture from checkpoint config."""
         logger.info("Loading weights: %s", path)
         ckpt = torch.load(path, map_location=self._device, weights_only=False)
         state_dict = ckpt.get("model_state_dict", ckpt)
+        config = ckpt.get("config", {})
 
-        # Try direct load (custom model — backbone-wrapped keys)
+        # Auto-detect architecture from checkpoint config
+        arch = config.get("architecture", "efficientnet_b2").lower()
+        model_name = config.get("model", arch)
+
+        # Map friendly names to registry keys
+        arch_map = {
+            "efficientnet_b2": "efficientnet_b2",
+            "efficientnet-b2": "efficientnet_b2",
+            "efficientnet_b0": "efficientnet_b2",  # will fail, triggers fallback
+            "vit_b_16": "vit_b_16",
+            "vit-b/16": "vit_b_16",
+            "vit_b_32": "vit_b_32",
+            "vit_l_16": "vit_l_16",
+        }
+        arch_key = arch_map.get(arch, arch)
+
+        # Try loading with the detected architecture
+        if arch_key in ARCHITECTURE_REGISTRY:
+            logger.info("Detected architecture: %s", arch_key)
+            model = create_classifier(arch_key)
+            display_name = config.get("architecture", arch_key).replace("_", "-").upper()
+
+            # Attempt direct load
+            try:
+                model.load_state_dict(state_dict, strict=True)
+                return model, f"{display_name} (Custom)"
+            except RuntimeError:
+                pass
+
+            # Try with backbone prefix
+            try:
+                prefixed = {("backbone." + k): v for k, v in state_dict.items()}
+                model.load_state_dict(prefixed, strict=True)
+                return model, f"{display_name} (Custom)"
+            except RuntimeError:
+                pass
+
+        # Fallback: try EfficientNet-B2 as default
+        logger.info("Architecture '%s' not in registry, trying EfficientNet-B2 fallback", arch_key)
+        model = EfficientNetB2Classifier()
+
+        # Direct load
         try:
-            self._model.load_state_dict(state_dict, strict=True)
-            self._model_name = "EfficientNet-B2 (Custom)"
-            logger.info("Custom model loaded successfully")
-            return
+            model.load_state_dict(state_dict, strict=True)
+            return model, "EfficientNet-B2 (Custom)"
         except RuntimeError:
             pass
 
-        # Try with backbone prefix (training saves raw, inference wraps in backbone)
+        # With backbone prefix
         try:
             prefixed = {("backbone." + k): v for k, v in state_dict.items()}
-            self._model.load_state_dict(prefixed, strict=True)
-            self._model_name = "EfficientNet-B2 (Custom)"
-            logger.info("Custom model loaded (backbone prefix added)")
-            return
+            model.load_state_dict(prefixed, strict=True)
+            return model, "EfficientNet-B2 (Custom)"
         except RuntimeError:
             pass
 
-        # Try legacy EfficientNet-B0 loading
-        logger.info("Trying legacy model loading...")
-        # Replace the classifier to match legacy architecture
-        self._model = models.efficientnet_b0(weights=None)
-        num_features = self._model.classifier[1].in_features
-        self._model.classifier = nn.Linear(num_features, 2)
+        # Legacy EfficientNet-B0 loading
+        logger.info("Trying legacy EfficientNet-B0 loading...")
+        model = models.efficientnet_b0(weights=None)
+        num_features = model.classifier[1].in_features
+        model.classifier = nn.Linear(num_features, 2)
 
         cleaned = {}
         for k, v in state_dict.items():
             name = k.replace("module.", "") if k.startswith("module.") else k
-            # Strip 'backbone.' prefix (legacy weights have it, bare EfficientNet-B0 doesn't)
             if name.startswith("backbone."):
                 name = name[len("backbone."):]
-            # Skip num_batches_tracked (not a parameter)
             if "num_batches_tracked" in name:
                 continue
-            # Fix classifier key: classifier.1.weight -> classifier.weight
             name = name.replace("classifier.1.", "classifier.")
             cleaned[name] = v
-        self._model.load_state_dict(cleaned, strict=True)
-        self._model_name = "EfficientNet-B0 (Legacy FaceForensics++)"
-        logger.info("Legacy model loaded successfully")
+        model.load_state_dict(cleaned, strict=True)
+        return model, "EfficientNet-B0 (Legacy FaceForensics++)"
 
     @torch.no_grad()
     def predict(self, face_rgb: np.ndarray) -> dict:

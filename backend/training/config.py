@@ -1,7 +1,7 @@
 """
 DeepTrace Model Training Configuration
 =======================================
-EfficientNet-B2 for binary deepfake detection.
+Supports EfficientNet-B2 and ViT-B/16 for binary deepfake detection.
 Tuned for RTX 4060 (8GB VRAM) with mixed precision.
 """
 
@@ -15,10 +15,18 @@ WEIGHTS_DIR = BASE_DIR / "model_weights"
 CHECKPOINTS_DIR = WEIGHTS_DIR / "checkpoints"
 
 # ── Model ──────────────────────────────────────────────────────────────────
-MODEL_NAME = "efficientnet_b2"
+ARCHITECTURE = "vit_b_16"                      # efficientnet_b2 | vit_b_16 | vit_b_32 | vit_l_16
 NUM_CLASSES = 2                                # real / fake
-INPUT_SIZE = 224                               # 224×224 RGB
+INPUT_SIZE = 224                               # 224×224 RGB (ViT-B/16 needs ≥224)
 PRETRAINED = True                              # ImageNet weights
+
+# Architecture-specific defaults
+ARCH_CONFIGS = {
+    "efficientnet_b2": {"lr": 3e-4, "batch_size": 16, "freeze_until": 6},
+    "vit_b_16":        {"lr": 1e-4, "batch_size": 8,  "freeze_until": 6},
+    "vit_b_32":        {"lr": 1e-4, "batch_size": 12, "freeze_until": 6},
+    "vit_l_16":        {"lr": 5e-5, "batch_size": 4,  "freeze_until": 8},
+}
 
 # ── Dataset ────────────────────────────────────────────────────────────────
 TRAIN_RATIO = 0.80
@@ -30,14 +38,14 @@ FACE_PADDING = 0.20                            # Padding around detected face
 RANDOM_SEED = 42
 
 # ── Training ───────────────────────────────────────────────────────────────
-BATCH_SIZE = 16                                # Fits comfortably in 8GB VRAM
+BATCH_SIZE = ARCH_CONFIGS[ARCHITECTURE]["batch_size"]
 NUM_WORKERS = 4                                # DataLoader workers
-NUM_EPOCHS = 15
-LEARNING_RATE = 3e-4
+NUM_EPOCHS = 20
+LEARNING_RATE = ARCH_CONFIGS[ARCHITECTURE]["lr"]
 WEIGHT_DECAY = 1e-4
 LABEL_SMOOTHING = 0.1
 WARMUP_EPOCHS = 2
-EARLY_STOP_PATIENCE = 4
+EARLY_STOP_PATIENCE = 5
 
 # ── Optimizer & Scheduler ──────────────────────────────────────────────────
 OPTIMIZER = "adamw"

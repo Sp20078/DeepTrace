@@ -1,7 +1,7 @@
 """
 DeepTrace Model Training
-=========================
-Trains EfficientNet-B2 for binary deepfake detection with:
+========================
+Trains EfficientNet-B2 or ViT for binary deepfake detection with:
 - Mixed precision (AMP)
 - Cosine annealing LR scheduler
 - Label smoothing
@@ -9,8 +9,14 @@ Trains EfficientNet-B2 for binary deepfake detection with:
 - Best checkpoint saving
 
 Usage:
+    # Train ViT-B/16 (default)
     python -m training.train --data backend/data/processed
-    python -m training.train --data backend/data/processed --epochs 20 --lr 1e-4
+
+    # Train EfficientNet-B2
+    python -m training.train --data backend/data/processed --architecture efficientnet_b2
+
+    # Train with custom settings
+    python -m training.train --data backend/data/processed --architecture vit_b_16 --epochs 30 --lr 5e-5
 """
 
 import argparse
@@ -29,6 +35,8 @@ from torchvision import models
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from training.config import (
+    ARCHITECTURE,
+    ARCH_CONFIGS,
     NUM_CLASSES,
     NUM_EPOCHS,
     LEARNING_RATE,
@@ -48,48 +56,116 @@ from training.dataset import create_dataloaders
 
 # ── Model Definition ──────────────────────────────────────────────────────
 
-def create_model(num_classes: int = NUM_CLASSES, pretrained: bool = True):
+def create_model(architecture: str = ARCHITECTURE, num_classes: int = NUM_CLASSES, pretrained: bool = True):
     """
-    Create EfficientNet-B2 model for binary classification.
+    Create a model for binary classification.
 
     Args:
+        architecture: Model architecture name (efficientnet_b2, vit_b_16, vit_b_32, vit_l_16)
         num_classes: Number of output classes (2 for real/fake)
         pretrained: Whether to use ImageNet pretrained weights
 
     Returns:
         nn.Module model ready for training
     """
-    weights = "IMAGENET1K_V1" if pretrained else None
-    model = models.efficientnet_b2(weights=weights)
+    arch_configs = ARCH_CONFIGS.get(architecture, {})
 
-    # Replace classifier head
-    num_features = model.classifier[1].in_features
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.3, inplace=True),
-        nn.Linear(num_features, 256),
-        nn.ReLU(inplace=True),
-        nn.Dropout(p=0.2),
-        nn.Linear(256, num_classes),
-    )
+    if architecture == "efficientnet_b2":
+        weights = "IMAGENET1K_V1" if pretrained else None
+        model = models.efficientnet_b2(weights=weights)
+        num_features = model.classifier[1].in_features
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.3, inplace=True),
+            nn.Linear(num_features, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, num_classes),
+        )
+
+    elif architecture == "vit_b_16":
+        weights = "IMAGENET1K_V1" if pretrained else None
+        model = models.vit_b_16(weights=weights)
+        hidden_dim = model.hidden_dim  # 768
+        model.heads = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(hidden_dim, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, num_classes),
+        )
+
+    elif architecture == "vit_b_32":
+        weights = "IMAGENET1K_V1" if pretrained else None
+        model = models.vit_b_32(weights=weights)
+        hidden_dim = model.hidden_dim  # 768
+        model.heads = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(hidden_dim, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, num_classes),
+        )
+
+    elif architecture == "vit_l_16":
+        weights = "IMAGENET1K_V1" if pretrained else None
+        model = models.vit_l_16(weights=weights)
+        hidden_dim = model.hidden_dim  # 1024
+        model.heads = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(hidden_dim, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, num_classes),
+        )
+
+    else:
+        raise ValueError(f"Unknown architecture: {architecture}. "
+                         f"Available: {list(ARCH_CONFIGS.keys())}")
 
     return model
 
 
-def freeze_early_layers(model, freeze_until: int = 6):
+def freeze_early_layers(model, architecture: str = ARCHITECTURE, freeze_until: int = None):
     """
-    Freeze early layers of EfficientNet-B2 for transfer learning.
-    Only trains the last `freeze_until` inverted residual blocks + classifier.
+    Freeze early layers for transfer learning.
+    For ViT: freezes encoder layers up to freeze_until.
+    For EfficientNet: freezes feature blocks up to freeze_until.
     """
-    # Freeze features up to the specified block
-    for i, block in enumerate(model.features):
-        if i < freeze_until:
-            for param in block.parameters():
-                param.requires_grad = False
+    if freeze_until is None:
+        freeze_until = ARCH_CONFIGS.get(architecture, {}).get("freeze_until", 6)
 
-    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    total = sum(p.numel() for p in model.parameters())
-    print(f"  Frozen layers 0-{freeze_until - 1}, training layers {freeze_until}-end")
-    print(f"  Trainable params: {trainable:,} / {total:,} ({100 * trainable / total:.1f}%)")
+    if "vit" in architecture:
+        # ViT has encoder.layers — freeze up to layer index
+        if hasattr(model, "encoder") and hasattr(model.encoder, "layers"):
+            layers = model.encoder.layers
+            for i, layer in enumerate(layers):
+                if i < freeze_until:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+            # Also freeze conv_proj (patch embedding) always
+            for param in model.conv_proj.parameters():
+                param.requires_grad = False
+        # For torchvision ViT, the structure is different
+        # It has encoder.layers, but the attribute name might vary
+        # Let's try the direct approach
+        total = sum(p.numel() for p in model.parameters())
+        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"  Frozen early ViT layers, training last layers + head")
+        print(f"  Trainable params: {trainable:,} / {total:,} ({100 * trainable / total:.1f}%)")
+
+    elif architecture == "efficientnet_b2":
+        # Freeze features up to the specified block
+        for i, block in enumerate(model.features):
+            if i < freeze_until:
+                for param in block.parameters():
+                    param.requires_grad = False
+
+        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in model.parameters())
+        print(f"  Frozen layers 0-{freeze_until - 1}, training layers {freeze_until}-end")
+        print(f"  Trainable params: {trainable:,} / {total:,} ({100 * trainable / total:.1f}%)")
+    else:
+        print(f"  No layer freezing for architecture: {architecture}")
 
 
 # ── Training Loop ──────────────────────────────────────────────────────────
@@ -207,12 +283,16 @@ def validate(model, loader, criterion, device):
 
 def train(args):
     """Main training function."""
+    architecture = args.architecture
+    arch_display = architecture.upper().replace("_", "/")
+    arch_config = ARCH_CONFIGS.get(architecture, {})
+
     print(f"\n{'='*60}")
     print("DeepTrace Model Training")
     print(f"{'='*60}")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Device: {DEVICE}")
-    print(f"Model: EfficientNet-B2")
+    print(f"Architecture: {arch_display}")
     print(f"Epochs: {args.epochs}")
     print(f"Batch size: {args.batch_size}")
     print(f"Learning rate: {args.lr}")
@@ -225,12 +305,12 @@ def train(args):
     )
 
     # Create model
-    print("\nCreating model...")
-    model = create_model(pretrained=True)
+    print(f"\nCreating {arch_display} model...")
+    model = create_model(architecture=architecture, pretrained=True)
     model = model.to(DEVICE)
 
     # Freeze early layers for faster fine-tuning
-    freeze_early_layers(model, freeze_until=6)
+    freeze_early_layers(model, architecture=architecture)
 
     # Loss, optimizer, scheduler
 
@@ -330,13 +410,14 @@ def train(args):
             "train_loss": train_loss,
             "train_acc": train_acc,
             "config": {
-                "model": "efficientnet_b2",
+                "architecture": architecture,
+                "model": architecture,
                 "num_classes": NUM_CLASSES,
                 "input_size": 224,
             },
         }
 
-        ckpt_path = CHECKPOINTS_DIR / f"epoch_{epoch + 1:03d}.pth"
+        ckpt_path = CHECKPOINTS_DIR / f"{architecture}_epoch_{epoch + 1:03d}.pth"
         torch.save(checkpoint, ckpt_path)
 
         # Track best checkpoints
@@ -349,7 +430,7 @@ def train(args):
 
         # Save best model
         if val_auc == max(c[0] for c in best_checkpoints):
-            best_path = WEIGHTS_DIR / "efficientnet_b2_deeptrace_best.pth"
+            best_path = WEIGHTS_DIR / f"{architecture}_deeptrace_best.pth"
             torch.save(checkpoint, best_path)
             print(f"  ★ New best model saved (AUC={val_auc:.4f})")
 
@@ -377,7 +458,7 @@ def train(args):
     print(f"{'='*60}")
 
     # Load best model
-    best_model_path = WEIGHTS_DIR / "efficientnet_b2_deeptrace_best.pth"
+    best_model_path = WEIGHTS_DIR / f"{architecture}_deeptrace_best.pth"
     if best_model_path.exists():
         ckpt = torch.load(best_model_path, map_location=DEVICE, weights_only=False)
         model.load_state_dict(ckpt["model_state_dict"])
@@ -389,20 +470,20 @@ def train(args):
     print(f"  Test AUC:      {test_auc:.4f}")
 
     # Save history
-    history_path = WEIGHTS_DIR / "training_history.json"
+    history_path = WEIGHTS_DIR / f"{architecture}_training_history.json"
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2)
     print(f"\nTraining history saved to {history_path}")
 
     # Save final model (non-checkpoint, inference-only)
-    final_path = WEIGHTS_DIR / "efficientnet_b2_deeptrace_final.pth"
+    final_path = WEIGHTS_DIR / f"{architecture}_deeptrace_final.pth"
     torch.save({
         "model_state_dict": model.state_dict(),
         "config": {
-            "model": "efficientnet_b2",
+            "architecture": architecture,
+            "model": architecture,
             "num_classes": NUM_CLASSES,
             "input_size": 224,
-            "architecture": "EfficientNet-B2",
             "training_date": datetime.now().isoformat(),
             "test_accuracy": test_acc,
             "test_auc": test_auc,
@@ -419,9 +500,14 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser(description="Train DeepTrace deepfake detection model")
     parser.add_argument("--data", required=True, help="Path to processed data directory")
+    parser.add_argument("--architecture", default=ARCHITECTURE,
+                        choices=list(ARCH_CONFIGS.keys()),
+                        help=f"Model architecture (default: {ARCHITECTURE})")
     parser.add_argument("--epochs", type=int, default=NUM_EPOCHS)
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
-    parser.add_argument("--lr", type=float, default=LEARNING_RATE)
+    parser.add_argument("--batch-size", type=int, default=None,
+                        help="Batch size (default: architecture-specific)")
+    parser.add_argument("--lr", type=float, default=None,
+                        help="Learning rate (default: architecture-specific)")
     parser.add_argument("--weight-decay", type=float, default=WEIGHT_DECAY)
     parser.add_argument("--label-smoothing", type=float, default=LABEL_SMOOTHING)
     parser.add_argument("--patience", type=int, default=EARLY_STOP_PATIENCE)
@@ -431,6 +517,13 @@ def main():
     parser.add_argument("--no-amp", action="store_false", dest="amp")
     parser.add_argument("--device", default=None, help="Override device (cuda/cpu)")
     args = parser.parse_args()
+
+    # Apply architecture-specific defaults for batch size and lr
+    arch_config = ARCH_CONFIGS.get(args.architecture, {})
+    if args.batch_size is None:
+        args.batch_size = arch_config.get("batch_size", BATCH_SIZE)
+    if args.lr is None:
+        args.lr = arch_config.get("lr", LEARNING_RATE)
 
     if args.device:
         import training.config as cfg
