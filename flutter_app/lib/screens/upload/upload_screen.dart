@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/theme/app_theme.dart';
@@ -6,7 +6,6 @@ import '../../core/layout/responsive_wrapper.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/staggered_entry.dart';
 import '../../services/api_service.dart';
-import '../analysis/analysis_screen.dart';
 import '../results/results_screen.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -17,8 +16,9 @@ class UploadScreen extends StatefulWidget {
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  File? _selectedFile;
+  Uint8List? _selectedFileBytes;
   String? _selectedFileName;
+  int _selectedFileSize = 0;
   bool _isAnalyzing = false;
   String? _errorMessage;
 
@@ -30,12 +30,25 @@ class _UploadScreenState extends State<UploadScreen> {
                             'mp4', 'mov', 'avi', 'webm', 'mkv'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _selectedFileName = result.files.single.name;
-          _errorMessage = null;
-        });
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+        // On web: file.bytes is available, file.path throws
+        // On mobile: file.bytes may be null but file.path works
+        // Solution: always use bytes — file_picker provides them on web,
+        // and on mobile we can read them via http.MultipartFile
+        final bytes = file.bytes;
+        if (bytes != null) {
+          setState(() {
+            _selectedFileBytes = bytes;
+            _selectedFileName = file.name;
+            _selectedFileSize = file.size;
+            _errorMessage = null;
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'Could not read file bytes. Try a different file.';
+          });
+        }
       }
     } catch (e) {
       setState(() {
@@ -45,7 +58,7 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _startAnalysis() async {
-    if (_selectedFile == null) {
+    if (_selectedFileBytes == null) {
       setState(() {
         _errorMessage = 'Please select a file first.';
       });
@@ -58,10 +71,12 @@ class _UploadScreenState extends State<UploadScreen> {
     });
 
     try {
-      final result = await ApiService.analyzeFile(_selectedFile!);
+      final result = await ApiService.analyzeFile(
+        _selectedFileBytes!,
+        fileName: _selectedFileName,
+      );
 
       if (mounted) {
-        // Navigate to results with real data
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => ResultsScreen(analysisResult: result),
@@ -91,8 +106,6 @@ class _UploadScreenState extends State<UploadScreen> {
     final isWide = ResponsiveWrapper.isDesktop(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AppColors.background : AppColorsLight.background;
-    final cardColor = isDark ? AppColors.card : AppColorsLight.card;
-    final cardBorder = isDark ? AppColors.cardBorder : AppColorsLight.cardBorder;
     final surface = isDark ? AppColors.surface : AppColorsLight.surface;
     final primary = isDark ? AppColors.primary : AppColorsLight.primary;
     final primaryGlow = isDark ? AppColors.primaryGlow : AppColorsLight.primaryGlow;
@@ -177,9 +190,9 @@ class _UploadScreenState extends State<UploadScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: highRisk.withOpacity(0.1),
+                        color: highRisk.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: highRisk.withOpacity(0.3)),
+                        border: Border.all(color: highRisk.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -236,15 +249,22 @@ class _UploadScreenState extends State<UploadScreen> {
     final textMuted = isDark ? AppColors.textMuted : AppColorsLight.textMuted;
     final success = isDark ? AppColors.success : AppColorsLight.success;
 
-    if (_selectedFile != null) {
+    if (_selectedFileBytes != null) {
       // Show selected file
+      String sizeText;
+      if (_selectedFileSize > 1024 * 1024) {
+        sizeText = '${(_selectedFileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else {
+        sizeText = '${(_selectedFileSize / 1024).toStringAsFixed(1)} KB';
+      }
+
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: success.withOpacity(0.3), width: 2),
+          border: Border.all(color: success.withValues(alpha: 0.3), width: 2),
         ),
         child: Row(
           children: [
@@ -252,7 +272,7 @@ class _UploadScreenState extends State<UploadScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: success.withOpacity(0.15),
+                color: success.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(Icons.check_circle_rounded, color: success, size: 24),
@@ -269,7 +289,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(_selectedFile!.lengthSync() / 1024).toStringAsFixed(1)} KB',
+                    sizeText,
                     style: AppTheme.bodySmall.copyWith(color: textMuted),
                   ),
                 ],
@@ -279,8 +299,9 @@ class _UploadScreenState extends State<UploadScreen> {
               icon: Icon(Icons.close_rounded, color: textMuted),
               onPressed: () {
                 setState(() {
-                  _selectedFile = null;
+                  _selectedFileBytes = null;
                   _selectedFileName = null;
+                  _selectedFileSize = 0;
                 });
               },
             ),
@@ -301,7 +322,7 @@ class _UploadScreenState extends State<UploadScreen> {
             color: surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: primary.withOpacity(0.15),
+              color: primary.withValues(alpha: 0.15),
               width: 2,
               strokeAlign: BorderSide.strokeAlignInside,
             ),
@@ -315,7 +336,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   color: primaryGlow,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.cloud_upload_rounded, size: 32, color: primary.withOpacity(0.7)),
+                child: Icon(Icons.cloud_upload_rounded, size: 32, color: primary.withValues(alpha: 0.7)),
               ),
               const SizedBox(height: 16),
               Text('Drag & drop or tap to select',

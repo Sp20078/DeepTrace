@@ -13,6 +13,7 @@ from services.file_handler import (
     validate_file,
     save_file,
     get_media_category,
+    _infer_mime_type,
 )
 from services.analysis import run_analysis_pipeline
 
@@ -59,10 +60,12 @@ async def analyze_media(file: UploadFile = File(...)):
 
     # 4. Run real analysis pipeline
     try:
-        media_category = get_media_category(file.content_type)
+        # Infer the actual MIME type (handles web's application/octet-stream)
+        inferred_type = _infer_mime_type(file.filename, file.content_type)
+        media_category = get_media_category(inferred_type)
         result = await run_analysis_pipeline(
             file_path=saved["stored_path"],
-            media_type=file.content_type,
+            media_type=inferred_type,
             media_category=media_category,
             filename=file.filename,
         )

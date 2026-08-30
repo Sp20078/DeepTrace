@@ -52,7 +52,7 @@ class _DeepTraceAppState extends State<DeepTraceApp> {
                   final args = settings.arguments;
                   if (args is Map<String, dynamic>) {
                     return FadeRoute(page: AnalysisScreen(
-                      file: args['file'],
+                      fileBytes: args['fileBytes'],
                       fileName: args['fileName'],
                     ));
                   }

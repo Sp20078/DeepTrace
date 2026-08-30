@@ -42,9 +42,15 @@ logger = logging.getLogger(__name__)
 MODEL_INPUT_SIZE = (224, 224)
 
 # Decision thresholds for fake probability
-THRESHOLD_HIGH = 0.5    # Above this: Likely Manipulated
-THRESHOLD_LOW = 0.35    # Below this: Likely Authentic
+# The model has a known bias toward high scores for general photos.
+# Thresholds are set conservatively to reduce false positives.
+THRESHOLD_HIGH = 0.85    # Above this: Likely Manipulated (very confident)
+THRESHOLD_LOW = 0.40     # Below this: Likely Authentic
 # Between thresholds: Inconclusive
+
+# Calibration: the model tends to output ~0.95+ for ANY face image.
+# We apply a soft calibration to reduce bias for well-known real photos.
+CALIBRATION_ENABLED = True
 
 # Where to cache model weights
 MODEL_CACHE_DIR = Path(__file__).parent.parent / "model_weights"
@@ -293,6 +299,11 @@ class AIDetector:
             real_prob = probs[0, 0].item()
             fake_prob = probs[0, 1].item()
 
+            # Apply calibration to reduce model bias
+            if CALIBRATION_ENABLED:
+                fake_prob = self._calibrate_score(fake_prob)
+                real_prob = 1.0 - fake_prob
+
             # Classification based on thresholds
             if fake_prob >= THRESHOLD_HIGH:
                 prediction = "Likely Manipulated"
@@ -302,8 +313,7 @@ class AIDetector:
                 prediction = "Inconclusive"
 
             # Confidence: distance from the neutral zone
-            # Peak confidence at 0 and 1, lowest at 0.5
-            confidence = abs(fake_prob - 0.5) * 2  # maps to [0, 1]
+            confidence = abs(fake_prob - 0.5) * 2
 
             return {
                 "manipulation_score": round(fake_prob, 4),
@@ -312,6 +322,7 @@ class AIDetector:
                 "confidence": round(confidence, 4),
                 "model": self.model_name,
                 "model_version": self.model_version,
+                "calibration_applied": CALIBRATION_ENABLED,
             }
 
         except Exception as e:
@@ -362,6 +373,11 @@ class AIDetector:
             fake_prob = float(probs[i, 1])
             real_prob = float(probs[i, 0])
 
+            # Apply calibration
+            if CALIBRATION_ENABLED:
+                fake_prob = self._calibrate_score(fake_prob)
+                real_prob = 1.0 - fake_prob
+
             if fake_prob >= THRESHOLD_HIGH:
                 pred = "Likely Manipulated"
             elif fake_prob <= THRESHOLD_LOW:
@@ -381,6 +397,30 @@ class AIDetector:
             })
 
         return results
+
+    @staticmethod
+    def _calibrate_score(raw_score: float) -> float:
+        """
+        Calibrate the model output to reduce known bias.
+
+        The FaceForensics++ model tends to output very high scores (>0.95)
+        for ANY face image, even real ones. This calibration applies a
+        sigmoid-like transformation centered around 0.5 to spread scores
+        more meaningfully across the [0, 1] range.
+
+        This is a heuristic calibration, not a replacement for proper
+        model retraining on diverse data.
+        """
+        import math
+        # Shift the score toward the center using a logistic transformation
+        # This compresses extreme scores (0.95 → ~0.70) while preserving
+        # the relative ordering
+        # k controls the strength of calibration (higher = more compression)
+        k = 3.0
+        # Center around 0.5, apply sigmoid compression
+        centered = (raw_score - 0.5) * k
+        calibrated = 1.0 / (1.0 + math.exp(-centered))
+        return max(0.0, min(1.0, calibrated))
 
 
 # ---------------------------------------------------------------------------

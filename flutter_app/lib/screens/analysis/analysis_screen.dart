@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/layout/responsive_wrapper.dart';
@@ -7,10 +7,11 @@ import '../../services/api_service.dart';
 import '../results/results_screen.dart';
 
 class AnalysisScreen extends StatefulWidget {
-  final File? file;
+  /// File bytes (Uint8List) — works on both web and mobile
+  final Uint8List? fileBytes;
   final String? fileName;
 
-  const AnalysisScreen({super.key, this.file, this.fileName});
+  const AnalysisScreen({super.key, this.fileBytes, this.fileName});
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
@@ -47,7 +48,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   void _startAnalysis() async {
-    if (widget.file == null) {
+    if (widget.fileBytes == null) {
       setState(() {
         _hasError = true;
         _errorMsg = 'No file provided for analysis.';
@@ -63,7 +64,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       final elapsed = DateTime.now().difference(startTime);
       final p = (elapsed.inMilliseconds / totalDuration.inMilliseconds)
-          .clamp(0.0, 0.95); // Don't reach 100% until API responds
+          .clamp(0.0, 0.95);
       final stepIndex = (elapsed.inMilliseconds / stepInterval.inMilliseconds)
           .floor()
           .clamp(0, _steps.length - 1);
@@ -78,7 +79,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
     // Call the real API
     try {
-      final result = await ApiService.analyzeFile(widget.file!);
+      final result = await ApiService.analyzeFile(
+        widget.fileBytes!,
+        fileName: widget.fileName,
+      );
 
       _progressTimer?.cancel();
 
@@ -181,9 +185,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: _highRisk(context).withOpacity(0.1),
+                        color: _highRisk(context).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _highRisk(context).withOpacity(0.3)),
+                        border: Border.all(color: _highRisk(context).withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,7 +266,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     color: (_hasError
                             ? _highRisk(context)
                             : (_isComplete ? _success(context) : _primary(context)))
-                        .withOpacity(0.4),
+                        .withValues(alpha: 0.4),
                     blurRadius: 6,
                     spreadRadius: 1,
                   ),
@@ -296,7 +300,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           alignment: Alignment.center,
           children: [
             CustomPaint(size: Size.infinite, painter: _AnalysisGridPainter(color: p)),
-            Icon(Icons.videocam_rounded, size: 48, color: _textMuted(context).withOpacity(0.4)),
+            Icon(Icons.videocam_rounded, size: 48, color: _textMuted(context).withValues(alpha: 0.4)),
 
             // Scan line
             AnimatedBuilder(
@@ -331,17 +335,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: _hasError
-                      ? _highRisk(context).withOpacity(0.15)
+                      ? _highRisk(context).withValues(alpha: 0.15)
                       : _isComplete
-                          ? _success(context).withOpacity(0.15)
+                          ? _success(context).withValues(alpha: 0.15)
                           : _primaryGlow(context),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: _hasError
-                        ? _highRisk(context).withOpacity(0.3)
+                        ? _highRisk(context).withValues(alpha: 0.3)
                         : _isComplete
-                            ? _success(context).withOpacity(0.3)
-                            : p.withOpacity(0.3),
+                            ? _success(context).withValues(alpha: 0.3)
+                            : p.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -419,8 +423,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _hasError
-                      ? _highRisk(context).withOpacity(0.1)
-                      : _isComplete ? s.withOpacity(0.1) : pg,
+                      ? _highRisk(context).withValues(alpha: 0.1)
+                      : _isComplete ? s.withValues(alpha: 0.1) : pg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -485,7 +489,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: isCurrent ? pg.withOpacity(0.3) : Colors.transparent,
+        color: isCurrent ? pg.withValues(alpha: 0.3) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
       margin: const EdgeInsets.only(bottom: 4),
@@ -531,7 +535,7 @@ class _AnalysisGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.03)
+      ..color = color.withValues(alpha: 0.03)
       ..strokeWidth = 0.5;
     const spacing = 30.0;
     for (double x = 0; x < size.width; x += spacing) {

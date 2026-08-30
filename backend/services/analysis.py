@@ -19,6 +19,9 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Import thresholds from AI detector for consistent classification
+from services.ai_detector import THRESHOLD_HIGH, THRESHOLD_LOW
+
 
 def create_analysis_id() -> str:
     """Generate a unique analysis ID."""
@@ -110,10 +113,10 @@ def analyze_image(file_path: str) -> dict:
         avg_score = sum(scores) / len(scores)
         confidence_scores = [p["confidence"] for p in predictions]
 
-        # Overall prediction based on max score
-        if max_score >= 0.65:
+        # Overall prediction based on max score (using calibrated thresholds)
+        if max_score >= THRESHOLD_HIGH:
             overall_prediction = "Likely Manipulated"
-        elif max_score <= 0.35:
+        elif max_score <= THRESHOLD_LOW:
             overall_prediction = "Likely Authentic"
         else:
             overall_prediction = "Inconclusive"
@@ -273,9 +276,9 @@ def analyze_video(file_path: str, max_frames: int = 30) -> dict:
         if predictions:
             scores = [p["manipulation_score"] for p in predictions]
             frame_score = max(scores)
-            if frame_score >= 0.65:
+            if frame_score >= THRESHOLD_HIGH:
                 frame_pred = "Likely Manipulated"
-            elif frame_score <= 0.35:
+            elif frame_score <= THRESHOLD_LOW:
                 frame_pred = "Likely Authentic"
             else:
                 frame_pred = "Inconclusive"
@@ -341,16 +344,16 @@ def analyze_video(file_path: str, max_frames: int = 30) -> dict:
     # 60% average + 40% top-k average
     final_score = 0.6 * avg_score + 0.4 * top_avg
 
-    # Overall prediction
-    if final_score >= 0.65:
+    # Overall prediction (using calibrated thresholds)
+    if final_score >= THRESHOLD_HIGH:
         overall_prediction = "Likely Manipulated"
-    elif final_score <= 0.35:
+    elif final_score <= THRESHOLD_LOW:
         overall_prediction = "Likely Authentic"
     else:
         overall_prediction = "Inconclusive"
 
-    # Identify suspicious frames (score > 0.6)
-    suspicious_threshold = 0.6
+    # Identify suspicious frames (only flag frames with high manipulation scores)
+    suspicious_threshold = 0.70  # More conservative than classification threshold
     suspicious_frames = [
         {
             "frame": f["frame_number"],
@@ -401,10 +404,10 @@ def analyze_video(file_path: str, max_frames: int = 30) -> dict:
                 "description": f"Suspicious segment: {seg['start_fmt']} - {seg['end_fmt']}",
                 "severity": "critical",
             })
-    if avg_score > 0.5:
+    if avg_score > THRESHOLD_LOW:
         findings.append({
-            "description": f"Average frame manipulation score ({avg_score:.0%}) is elevated",
-            "severity": "warning",
+            "description": f"Average frame manipulation score ({avg_score:.0%}) is above baseline",
+            "severity": "info",
         })
 
     # Media info

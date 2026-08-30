@@ -1,14 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
 
 /// Configuration for the API service.
 /// Change baseUrl when deploying to a different host.
 class ApiConfig {
   // Local development — FastAPI backend
-  static const String baseUrl = 'http://127.0.0.1:8000';
-  static const Duration timeout = Duration(seconds: 120); // Analysis can take time
+  // Use localhost (not 127.0.0.1) for better browser compatibility
+  static const String baseUrl = 'http://localhost:8000';
+  static const Duration timeout = Duration(seconds: 120);
 }
 
 /// Data model for analysis results.
@@ -76,17 +76,14 @@ class AnalysisResult {
     );
   }
 
-  /// Risk score 0-100 for display
   int get riskScore => score.round();
 
-  /// Risk level classification
   String get riskLevel {
     if (score >= 65) return 'HIGH';
     if (score >= 35) return 'MEDIUM';
     return 'LOW';
   }
 
-  /// Risk level as enum-compatible string for the UI
   bool get isHighRisk => score >= 65;
   bool get isMediumRisk => score >= 35 && score < 65;
   bool get isLowRisk => score < 35;
@@ -94,20 +91,13 @@ class AnalysisResult {
 
 /// API service for communicating with the DeepTrace backend.
 class ApiService {
-  /// Analyze a media file (image or video).
-  ///
-  /// Sends the file to POST /analyze and returns structured results.
-  static Future<AnalysisResult> analyzeFile(File file) async {
+  /// Analyze a media file — accepts Uint8List bytes (works on web + mobile).
+  static Future<AnalysisResult> analyzeFile(Uint8List fileBytes, {String? fileName}) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/analyze');
-
-    // Create multipart request
     final request = http.MultipartRequest('POST', uri);
+
     request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        file.path,
-        filename: p.basename(file.path),
-      ),
+      http.MultipartFile.fromBytes('file', fileBytes, filename: fileName ?? 'uploaded_file'),
     );
 
     // Send with timeout

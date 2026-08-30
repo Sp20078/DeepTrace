@@ -57,6 +57,22 @@ TYPE_LABELS = {
     "video/x-matroska": "MKV",
 }
 
+# Map file extensions to MIME types (for web uploads that send application/octet-stream)
+EXTENSION_TO_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".avi": "video/x-msvideo",
+    ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
+}
+
 
 # ---------------------------------------------------------------------------
 # Validation
@@ -65,6 +81,27 @@ TYPE_LABELS = {
 class UploadError(Exception):
     """Raised when file upload validation fails."""
     pass
+
+
+def _infer_mime_type(filename: str, content_type: Optional[str]) -> str:
+    """
+    Infer the actual MIME type from the filename extension.
+
+    On web, file_picker sends 'application/octet-stream' instead of the real
+    MIME type. We detect the actual type from the file extension.
+    """
+    # If we already have a valid MIME type, use it
+    if content_type and content_type in SUPPORTED_TYPES:
+        return content_type
+
+    # Try to infer from filename extension
+    if filename:
+        ext = Path(filename).suffix.lower()
+        if ext in EXTENSION_TO_MIME:
+            return EXTENSION_TO_MIME[ext]
+
+    # Return whatever we got (will fail validation if unsupported)
+    return content_type or ""
 
 
 def validate_file(
@@ -87,14 +124,17 @@ def validate_file(
     if not filename:
         raise UploadError("No filename provided.")
 
+    # Infer the actual MIME type (handles web's application/octet-stream)
+    inferred_type = _infer_mime_type(filename, content_type)
+
     # Check that the content type is recognized and supported
-    if not content_type:
+    if not inferred_type:
         raise UploadError("Could not determine the file type. Please ensure you are uploading a valid image or video.")
 
-    if content_type not in SUPPORTED_TYPES:
+    if inferred_type not in SUPPORTED_TYPES:
         supported = ", ".join(sorted(TYPE_LABELS.values()))
         raise UploadError(
-            f"Unsupported file type: '{content_type}'. "
+            f"Unsupported file type: '{inferred_type}'. "
             f"Supported formats: {supported}"
         )
 
