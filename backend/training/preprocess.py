@@ -219,35 +219,66 @@ def process_directory(
 
 
 def split_data(raw_dir: Path, output_dir: Path, seed: int = RANDOM_SEED):
-    """Split raw face crops into train/val/test."""
+    """Split raw face crops into train/val/test with BALANCED classes.
+
+    Undersamples the majority class in each split so real and fake counts
+    are equal.  The unused majority-class images are discarded.
+    """
     random.seed(seed)
 
+    # ── Load both classes ──────────────────────────────────────────────────
+    class_images: dict[str, list[Path]] = {}
     for class_name in ["real", "fake"]:
         class_dir = raw_dir / class_name
         if not class_dir.exists():
             continue
-
         images = list(class_dir.glob("*.png"))
         random.shuffle(images)
+        class_images[class_name] = images
 
-        n = len(images)
-        n_train = int(n * TRAIN_RATIO)
-        n_val = int(n * VAL_RATIO)
+    if len(class_images) < 2:
+        print("  ⚠ Need both real/ and fake/ directories to create balanced splits")
+        return
 
-        splits = {
-            "train": images[:n_train],
-            "val": images[n_train:n_train + n_val],
-            "test": images[n_train + n_val:],
-        }
+    real_imgs = class_images.get("real", [])
+    fake_imgs = class_images.get("fake", [])
+    n_real = len(real_imgs)
+    n_fake = len(fake_imgs)
 
-        for split_name, split_images in splits.items():
+    print(f"  Raw counts — real: {n_real}, fake: {n_fake}")
+
+    # ── Determine balanced split sizes ─────────────────────────────────────
+    # Cap the majority class to the minority class size per split
+    min_class = min(n_real, n_fake)
+    n_train = int(min_class * TRAIN_RATIO)
+    n_val = int(min_class * VAL_RATIO)
+    n_test = min_class - n_train - n_val
+
+    # Slice each class independently (already shuffled)
+    splits_real = {
+        "train": real_imgs[:n_train],
+        "val": real_imgs[n_train:n_train + n_val],
+        "test": real_imgs[n_train + n_val:n_train + n_val + n_test],
+    }
+    splits_fake = {
+        "train": fake_imgs[:n_train],
+        "val": fake_imgs[n_train:n_train + n_val],
+        "test": fake_imgs[n_train + n_val:n_train + n_val + n_test],
+    }
+
+    for split_name in ["train", "val", "test"]:
+        for class_name, split_imgs in [("real", splits_real[split_name]),
+                                        ("fake", splits_fake[split_name])]:
             split_dir = output_dir / split_name / class_name
             split_dir.mkdir(parents=True, exist_ok=True)
-
-            for img_path in split_images:
+            for img_path in split_imgs:
                 shutil.copy2(img_path, split_dir / img_path.name)
 
-        print(f"  {class_name}: {n_train} train / {n_val} val / {n - n_train - n_val} test")
+    print(f"  Balanced split — train: {n_train} real + {n_train} fake")
+    print(f"                 val:   {n_val} real + {n_val} fake")
+    print(f"                 test:  {n_test} real + {n_test} fake")
+    print(f"  Total per class: {min_class} (majority class {"real" if n_real > n_fake else "fake"} "
+          f"had {max(n_real, n_fake)} — {max(n_real, n_fake) - min_class} unused)")
 
 
 def main():

@@ -233,7 +233,24 @@ def train(args):
     freeze_early_layers(model, freeze_until=6)
 
     # Loss, optimizer, scheduler
-    criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
+
+    # Compute class weights from training data to handle imbalance
+    train_labels = [label for _, label in train_loader.dataset.samples]
+    n_real = sum(1 for l in train_labels if l == 0)
+    n_fake = sum(1 for l in train_labels if l == 1)
+    total = n_real + n_fake
+    # Inverse frequency weighting: minority class gets higher weight
+    class_weights = torch.tensor([
+        total / (2.0 * n_real),   # weight for real (class 0)
+        total / (2.0 * n_fake),   # weight for fake (class 1)
+    ], device=DEVICE)
+    print(f"\n  Class distribution — real: {n_real}, fake: {n_fake}")
+    print(f"  Class weights — real: {class_weights[0]:.3f}, fake: {class_weights[1]:.3f}")
+
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights,
+        label_smoothing=args.label_smoothing,
+    )
 
     optimizer = optim.AdamW(
         filter(lambda p: p.requires_grad, model.parameters()),

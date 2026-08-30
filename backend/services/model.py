@@ -2,10 +2,12 @@
 DeepTrace Model Service — Clean Rebuild
 =========================================
 Loads the trained EfficientNet-B2 and runs inference.
-No hacks, no calibration workarounds — just clean model output.
+Applies Platt scaling calibration when available.
 """
 
 import logging
+import math
+import pickle
 from pathlib import Path
 from typing import Optional
 
@@ -26,6 +28,7 @@ LEGACY_URL = (
     "https://huggingface.co/Xicor9/efficientnet-b0-ffpp-c23/"
     "resolve/main/efficientnet_b0_ffpp_c23.pth"
 )
+CALIBRATOR_PATH = WEIGHTS_DIR / "calibrator.pkl"
 
 # ── Preprocessing ──────────────────────────────────────────────────────────
 INPUT_SIZE = (224, 224)
@@ -68,12 +71,39 @@ class DeepfakeClassifier(nn.Module):
 
 
 # ── Inference Engine ───────────────────────────────────────────────────────
+class PlattScaler:
+    """Platt scaling for probability calibration."""
+
+    def __init__(self, a: float = 1.0, b: float = 0.0):
+        self.a = a
+        self.b = b
+        self.fitted = True if a != 1.0 or b != 0.0 else False
+
+    def calibrate(self, raw_fake_prob: float) -> float:
+        """Apply sigmoid calibration to a raw fake probability."""
+        if not self.fitted:
+            return raw_fake_prob
+        logit = self.a * raw_fake_prob + self.b
+        return 1.0 / (1.0 + math.exp(-logit))
+
+    @classmethod
+    def load(cls, path: Path) -> "PlattScaler":
+        try:
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+            return cls(a=float(data["a"]), b=float(data["b"]))
+        except Exception as e:
+            logger.warning("Failed to load calibrator from %s: %s", path, e)
+            return cls()
+
+
 class DeepfakeModel:
     """Singleton model wrapper for inference."""
 
     _instance: Optional["DeepfakeModel"] = None
     _model: Optional[DeepfakeClassifier] = None
     _device: Optional[torch.device] = None
+    _calibrator: Optional[PlattScaler] = None
 
     @classmethod
     def get_instance(cls) -> "DeepfakeModel":
@@ -98,6 +128,15 @@ class DeepfakeModel:
         self._load(weights_path)
         self._model.to(self._device)
         self._model.eval()
+
+        # Calibration
+        self._calibrator = PlattScaler.load(CALIBRATOR_PATH)
+        if self._calibrator.fitted:
+            logger.info("Platt scaling calibration loaded (a=%.4f, b=%.4f)",
+                        self._calibrator.a, self._calibrator.b)
+        else:
+            logger.warning("No calibrator found — using raw model outputs")
+
         logger.info("Model ready on %s", self._device)
 
     def _find_weights(self) -> Path:
@@ -176,19 +215,24 @@ class DeepfakeModel:
         Predict on a single face crop.
 
         Returns:
-            {"fake_prob": float, "real_prob": float, "prediction": str}
+            {"fake_prob": float, "real_prob": float, "confidence": float}
         """
         tensor = preprocess_face(face_rgb).to(self._device)
         logits = self._model(tensor)
         probs = torch.softmax(logits, dim=1)[0]
 
-        real_prob = probs[0].item()
-        fake_prob = probs[1].item()
+        raw_fake_prob = probs[1].item()
+
+        # Apply Platt scaling calibration if available
+        calibrated_fake_prob = self._calibrator.calibrate(raw_fake_prob)
+        calibrated_real_prob = 1.0 - calibrated_fake_prob
 
         return {
-            "fake_prob": round(fake_prob, 4),
-            "real_prob": round(real_prob, 4),
-            "confidence": round(abs(fake_prob - 0.5) * 2, 4),
+            "fake_prob": round(calibrated_fake_prob, 4),
+            "real_prob": round(calibrated_real_prob, 4),
+            "raw_fake_prob": round(raw_fake_prob, 4),
+            "confidence": round(abs(calibrated_fake_prob - 0.5) * 2, 4),
+            "calibrated": self._calibrator.fitted,
         }
 
     @torch.no_grad()
@@ -203,12 +247,15 @@ class DeepfakeModel:
 
         results = []
         for i in range(len(faces)):
-            fake_prob = float(probs[i, 1])
-            real_prob = float(probs[i, 0])
+            raw_fake_prob = float(probs[i, 1])
+            calibrated_fake_prob = self._calibrator.calibrate(raw_fake_prob)
+            calibrated_real_prob = 1.0 - calibrated_fake_prob
             results.append({
-                "fake_prob": round(fake_prob, 4),
-                "real_prob": round(real_prob, 4),
-                "confidence": round(abs(fake_prob - 0.5) * 2, 4),
+                "fake_prob": round(calibrated_fake_prob, 4),
+                "real_prob": round(calibrated_real_prob, 4),
+                "raw_fake_prob": round(raw_fake_prob, 4),
+                "confidence": round(abs(calibrated_fake_prob - 0.5) * 2, 4),
+                "calibrated": self._calibrator.fitted,
             })
         return results
 
