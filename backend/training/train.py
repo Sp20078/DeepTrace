@@ -432,7 +432,7 @@ def train(args):
         if val_auc == max(c[0] for c in best_checkpoints):
             best_path = WEIGHTS_DIR / f"{architecture}_deeptrace_best.pth"
             torch.save(checkpoint, best_path)
-            print(f"  ★ New best model saved (AUC={val_auc:.4f})")
+            print(f"  ** New best model saved (AUC={val_auc:.4f})")
 
         # Scheduler step
         if args.scheduler == "plateau":
@@ -442,7 +442,7 @@ def train(args):
 
         # Early stopping
         if early_stopping(val_loss):
-            print(f"\n⚠ Early stopping at epoch {epoch + 1}")
+            print(f"\n[WARN] Early stopping at epoch {epoch + 1}")
             break
 
         print()

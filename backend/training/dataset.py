@@ -160,12 +160,15 @@ def create_dataloaders(processed_dir: str | Path, batch_size: int = BATCH_SIZE):
         train_weights, num_samples=len(train_weights), replacement=True
     )
 
+    import torch
+    use_pin = torch.cuda.is_available()
+
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
         sampler=sampler,
         num_workers=NUM_WORKERS,
-        pin_memory=True,
+        pin_memory=use_pin,
         drop_last=True,
     )
 
@@ -174,7 +177,7 @@ def create_dataloaders(processed_dir: str | Path, batch_size: int = BATCH_SIZE):
         batch_size=batch_size,
         shuffle=False,
         num_workers=NUM_WORKERS,
-        pin_memory=True,
+        pin_memory=use_pin,
     )
 
     test_loader = DataLoader(
@@ -182,7 +185,7 @@ def create_dataloaders(processed_dir: str | Path, batch_size: int = BATCH_SIZE):
         batch_size=batch_size,
         shuffle=False,
         num_workers=NUM_WORKERS,
-        pin_memory=True,
+        pin_memory=use_pin,
     )
 
     # Print dataset stats

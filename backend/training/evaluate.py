@@ -232,7 +232,7 @@ def print_metrics(metrics, title="Evaluation Results"):
     print(f"  Precision:   {metrics['precision']:.4f}")
     print(f"  Recall:      {metrics['recall']:.4f}")
     print(f"  F1-Score:    {metrics['f1']:.4f}")
-    print(f"  {'─'*40}")
+    print(f"  {'-'*40}")
     print(f"  TP: {metrics['true_positives']:4d}  |  FP: {metrics['false_positives']:4d}")
     print(f"  FN: {metrics['false_negatives']:4d}  |  TN: {metrics['true_negatives']:4d}")
     print(f"  Inconclusive: {metrics['inconclusive']}")
@@ -267,7 +267,7 @@ def main():
                 break
     
     if not ckpt_path or not Path(ckpt_path).exists():
-        print(f"  ✗ No checkpoint found")
+        print(f"  [ERROR] No checkpoint found")
         print(f"    Train the model first: python -m training.train --data <processed_dir>")
         sys.exit(1)
     
@@ -310,7 +310,7 @@ def main():
     test_dir = Path(args.data)
     transform = get_val_transforms()
     dataset = EvalDataset(test_dir, transform=transform)
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     print(f"\nTest set: {len(dataset)} images")
     class_counts = {}

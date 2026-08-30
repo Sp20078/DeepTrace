@@ -39,7 +39,7 @@ RANDOM_SEED = 42
 
 # ── Training ───────────────────────────────────────────────────────────────
 BATCH_SIZE = ARCH_CONFIGS[ARCHITECTURE]["batch_size"]
-NUM_WORKERS = 4                                # DataLoader workers
+NUM_WORKERS = 0                                # DataLoader workers (0 = main process, safer on Windows)
 NUM_EPOCHS = 20
 LEARNING_RATE = ARCH_CONFIGS[ARCHITECTURE]["lr"]
 WEIGHT_DECAY = 1e-4
@@ -80,7 +80,7 @@ SAVE_BEST_N = 3                                # Keep top-N checkpoints
 import torch
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 if DEVICE == "cuda":
-    print(f"✓ Using GPU: {torch.cuda.get_device_name(0)}")
+    print(f"[OK] Using GPU: {torch.cuda.get_device_name(0)}")
     print(f"  VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 else:
-    print("⚠ No GPU detected — training will be slow on CPU")
+    print("[WARN] No GPU detected -- training will be slow on CPU")

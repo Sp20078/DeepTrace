@@ -320,6 +320,10 @@ def analyze_video(file_path: str, filename: str = "", max_frames: int = 30) -> d
     else:
         prediction = "Likely Authentic"
 
+    # ── Temporal Motion Analysis (optical flow + inter-frame) ─────────
+    flow_data = _compute_optical_flow_consistency(frame_data)
+    inter_frame = _compute_inter_frame_consistency(frame_analyses)
+
     # ── Suspicious frames (real evidence) ──────────────────────────────
     SUSPICIOUS_THRESHOLD = 0.50
     suspicious_frames = [
@@ -344,11 +348,13 @@ def analyze_video(file_path: str, filename: str = "", max_frames: int = 30) -> d
         suspicious_frames=suspicious_frames,
         segments=segments,
         all_face_analyses=all_face_analyses,
+        flow_data=flow_data,
+        inter_frame=inter_frame,
     )
 
     # ── Per-frame summary for the analysis breakdown cards ─────────────
     visual_score = _compute_visual_score(all_face_analyses)
-    temporal_score = _compute_temporal_score(frame_scores)
+    temporal_score = _compute_temporal_score(frame_scores, flow_data, inter_frame)
     metadata_score = 0.0  # Can't assess from video alone
     face_score = _compute_face_consistency(all_face_analyses)
 
@@ -376,9 +382,175 @@ def analyze_video(file_path: str, filename: str = "", max_frames: int = 30) -> d
             "raw_avg": round(avg_score, 4),
             "top_k_avg": round(top_avg, 4),
             "final_score": round(final_score, 4),
+            "flow_mean_magnitude": flow_data.get("mean_magnitude", 0),
+            "flow_flicker_score": flow_data.get("flicker_score", 0),
+            "flow_boundary_spikes": flow_data.get("boundary_spikes", 0),
+            "inter_frame_max_jump": inter_frame.get("max_jump", 0),
+            "inter_frame_avg_jump": inter_frame.get("avg_jump", 0),
         },
         media_info=video_meta,
     )
+
+
+# ── Optical Flow Temporal Analysis ──────────────────────────────────────────
+
+def _compute_optical_flow_consistency(frame_data: list[dict], max_pairs: int = 15) -> dict:
+    """
+    Compute optical flow between consecutive sampled frames.
+    Deepfakes often show unnatural motion patterns:
+    - Sudden flow spikes at face boundaries
+    - Inconsistent motion between face and background
+    - Temporal flickering in flow magnitude
+    """
+    if len(frame_data) < 2:
+        return {"flow_scores": [], "mean_magnitude": 0.0, "flow_std": 0.0,
+                "flicker_score": 0.0, "boundary_spikes": 0}
+
+    gray_frames = []
+    for fd in frame_data:
+        gray = cv2.cvtColor(fd["frame"], cv2.COLOR_BGR2GRAY)
+        gray_frames.append(gray)
+
+    flow_magnitudes = []
+    flow_scores = []
+    n_pairs = min(max_pairs, len(gray_frames) - 1)
+
+    for i in range(n_pairs):
+        idx1 = int(i * (len(gray_frames) - 1) / max(1, n_pairs))
+        idx2 = min(idx1 + 1, len(gray_frames) - 1)
+        if idx1 == idx2:
+            continue
+
+        prev_gray = cv2.GaussianBlur(gray_frames[idx1], (5, 5), 0)
+        curr_gray = cv2.GaussianBlur(gray_frames[idx2], (5, 5), 0)
+
+        try:
+            flow = cv2.calcOpticalFlowFarneback(
+                prev_gray, curr_gray, None,
+                pyr_scale=0.5, levels=3, winsize=15,
+                iterations=3, poly_n=5, poly_sigma=1.2, flags=0
+            )
+            mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+            mean_mag = float(np.mean(mag))
+            max_mag = float(np.max(mag))
+            std_mag = float(np.std(mag))
+
+            flow_magnitudes.append(mean_mag)
+
+            # Score: high max/mean ratio = localized spikes (suspicious)
+            spike_ratio = max_mag / (mean_mag + 1e-6)
+            # Score: high std = inconsistent motion
+            motion_inconsistency = min(1.0, std_mag / (mean_mag + 1e-6) / 3.0)
+            # Combined flow quality score
+            pair_score = min(1.0, (spike_ratio / 10.0) * 0.6 + motion_inconsistency * 0.4)
+            flow_scores.append(round(pair_score, 4))
+
+        except Exception:
+            flow_scores.append(0.0)
+
+    if not flow_magnitudes:
+        return {"flow_scores": [], "mean_magnitude": 0.0, "flow_std": 0.0,
+                "flicker_score": 0.0, "boundary_spikes": 0}
+
+    flow_arr = np.array(flow_magnitudes)
+    mean_mag = float(np.mean(flow_arr))
+    flow_std = float(np.std(flow_arr))
+
+    # Flicker detection: abrupt changes in flow magnitude between consecutive pairs
+    flicker_score = 0.0
+    if len(flow_arr) >= 3:
+        diffs = np.abs(np.diff(flow_arr))
+        flicker_score = float(np.mean(diffs) / (mean_mag + 1e-6))
+        flicker_score = min(1.0, flicker_score * 5.0)
+
+    # Count boundary spikes (pairs with very high score)
+    boundary_spikes = sum(1 for s in flow_scores if s > 0.5)
+
+    return {
+        "flow_scores": flow_scores,
+        "mean_magnitude": round(mean_mag, 4),
+        "flow_std": round(flow_std, 4),
+        "flicker_score": round(flicker_score, 4),
+        "boundary_spikes": boundary_spikes,
+    }
+
+
+def _compute_inter_frame_consistency(frame_analyses: list[dict]) -> dict:
+    """
+    Compute inter-frame consistency metrics:
+    - Face score jumps between consecutive frames
+    - Sudden score transitions (deepfake blending artifacts)
+    - Persistent high-score streaks
+    """
+    scored = [f for f in frame_analyses if f["faces_found"] > 0]
+    if len(scored) < 2:
+        return {"transitions": [], "max_jump": 0.0, "avg_jump": 0.0,
+                "high_streaks": 0}
+
+    scores = [f["max_fake_prob"] for f in scored]
+    transitions = []
+    jumps = []
+
+    for i in range(1, len(scores)):
+        jump = abs(scores[i] - scores[i - 1])
+        jumps.append(jump)
+
+        # Classify transition
+        if jump > 0.3:
+            transition_type = "abrupt"
+        elif jump > 0.15:
+            transition_type = "moderate"
+        else:
+            transition_type = "smooth"
+
+        transitions.append({
+            "from_frame": scored[i - 1]["frame_number"],
+            "to_frame": scored[i]["frame_number"],
+            "from_timestamp": scored[i - 1]["timestamp_fmt"],
+            "to_timestamp": scored[i]["timestamp_fmt"],
+            "from_score": round(scores[i - 1], 4),
+            "to_score": round(scores[i], 4),
+            "jump": round(jump, 4),
+            "type": transition_type,
+        })
+
+    # Detect persistent high-score streaks (consecutive frames >= 0.50)
+    streaks = []
+    current_streak = 0
+    streak_start = 0
+    for i, s in enumerate(scores):
+        if s >= 0.50:
+            if current_streak == 0:
+                streak_start = i
+            current_streak += 1
+        else:
+            if current_streak >= 2:
+                streaks.append({
+                    "start_frame": scored[streak_start]["frame_number"],
+                    "end_frame": scored[i - 1]["frame_number"],
+                    "start_time": scored[streak_start]["timestamp_fmt"],
+                    "end_time": scored[i - 1]["timestamp_fmt"],
+                    "length": current_streak,
+                    "avg_score": round(float(np.mean(scores[streak_start:i])), 4),
+                })
+            current_streak = 0
+    # Close final streak
+    if current_streak >= 2:
+        streaks.append({
+            "start_frame": scored[streak_start]["frame_number"],
+            "end_frame": scored[-1]["frame_number"],
+            "start_time": scored[streak_start]["timestamp_fmt"],
+            "end_time": scored[-1]["timestamp_fmt"],
+            "length": current_streak,
+            "avg_score": round(float(np.mean(scores[streak_start:])), 4),
+        })
+
+    return {
+        "transitions": transitions,
+        "max_jump": round(float(max(jumps)) if jumps else 0.0, 4),
+        "avg_jump": round(float(np.mean(jumps)) if jumps else 0.0, 4),
+        "high_streaks": streaks,
+    }
 
 
 # ── Analysis Breakdown Helpers ─────────────────────────────────────────────
@@ -391,17 +563,36 @@ def _compute_visual_score(face_analyses: list[dict]) -> float:
     return sum(scores) / len(scores)
 
 
-def _compute_temporal_score(frame_scores: list[float]) -> float:
+def _compute_temporal_score(frame_scores: list[float], flow_data: dict = None,
+                            inter_frame: dict = None) -> float:
     """
-    Temporal inconsistency: how much frame scores vary.
-    High variance = suspicious temporal behavior.
+    Multi-factor temporal inconsistency score combining:
+    1. Frame score variance (model-based)
+    2. Optical flow flickering
+    3. Inter-frame score jumps
     """
     if len(frame_scores) < 2:
         return 0.0
-    scores = np.array(frame_scores)
-    std = float(np.std(scores))
-    # Map std to [0,1]: std of 0.2+ means very inconsistent
-    return min(1.0, std / 0.25)
+
+    scores_arr = np.array(frame_scores)
+    # Factor 1: score variance
+    std = float(np.std(scores_arr))
+    variance_score = min(1.0, std / 0.25)
+
+    # Factor 2: flow flickering
+    flow_score = 0.0
+    if flow_data:
+        flow_score = flow_data.get("flicker_score", 0.0)
+
+    # Factor 3: inter-frame jumps
+    jump_score = 0.0
+    if inter_frame and inter_frame.get("transitions"):
+        max_jump = inter_frame["max_jump"]
+        jump_score = min(1.0, max_jump / 0.5)
+
+    # Weighted combination: 40% variance, 30% flow, 30% jumps
+    combined = 0.4 * variance_score + 0.3 * flow_score + 0.3 * jump_score
+    return min(1.0, combined)
 
 
 def _compute_face_consistency(face_analyses: list[dict]) -> float:
@@ -499,28 +690,35 @@ def _generate_video_findings(
     suspicious_frames: list[dict],
     segments: list[dict],
     all_face_analyses: list[dict],
+    flow_data: dict = None,
+    inter_frame: dict = None,
 ) -> list[dict]:
-    """Generate findings for video from real analysis data."""
+    """Generate evidence-based findings for video from real analysis data."""
     findings = []
 
-    # 1. Suspicious frame count
+    # 1. Suspicious frame count — with evidence
     if suspicious_frames:
         pct = len(suspicious_frames) / len(scored_frames) * 100
+        peak_frame = max(suspicious_frames, key=lambda f: f["score"])
         findings.append({
             "description": f"{len(suspicious_frames)} frame(s) flagged with manipulation signals "
                           f"({pct:.0f}% of analyzed frames).",
             "severity": "critical" if len(suspicious_frames) > 3 else "warning",
+            "detail": f"Highest risk frame at {peak_frame['timestamp_fmt']} "
+                      f"(score: {peak_frame['score']:.0%}).",
         })
 
-    # 2. Suspicious time segments
+    # 2. Suspicious time segments — with evidence
     for seg in segments:
+        duration = seg["end"] - seg["start"]
         findings.append({
-            "description": f"Suspicious activity detected: {seg['start_fmt']} → {seg['end_fmt']}",
+            "description": f"Suspicious activity detected: {seg['start_fmt']} -> {seg['end_fmt']} "
+                          f"({duration:.1f}s segment).",
             "severity": "critical" if seg["risk_level"] == "HIGH" else "warning",
-            "detail": f"Peak manipulation score in segment: {seg['max_score']:.0%}",
+            "detail": f"Peak manipulation score in segment: {seg['max_score']:.0%}.",
         })
 
-    # 3. Temporal inconsistency
+    # 3. Temporal inconsistency — score variance
     if len(frame_scores) >= 3:
         std = float(np.std(frame_scores))
         if std > 0.15:
@@ -531,7 +729,49 @@ def _generate_video_findings(
                           f"spliced or temporally manipulated content.",
             })
 
-    # 4. Face boundary issues
+    # 4. Optical flow evidence — motion anomalies
+    if flow_data:
+        if flow_data["flicker_score"] > 0.3:
+            findings.append({
+                "description": "Temporal flickering detected in motion patterns.",
+                "severity": "warning",
+                "detail": f"Motion flicker score: {flow_data['flicker_score']:.2f}. "
+                          f"Sudden changes in inter-frame motion may indicate face blending artifacts.",
+            })
+        if flow_data["boundary_spikes"] > 0:
+            findings.append({
+                "description": f"{flow_data['boundary_spikes']} motion anomaly spike(s) detected.",
+                "severity": "warning",
+                "detail": "Localized motion spikes at face boundaries suggest potential "
+                          "face-swap or face-replacement artifacts.",
+            })
+
+    # 5. Inter-frame score jumps — abrupt transitions
+    if inter_frame:
+        abrupt = [t for t in inter_frame.get("transitions", []) if t["type"] == "abrupt"]
+        if abrupt:
+            worst = max(abrupt, key=lambda t: t["jump"])
+            findings.append({
+                "description": f"{len(abrupt)} abrupt score transition(s) between consecutive frames.",
+                "severity": "warning",
+                "detail": f"Largest jump: {worst['from_score']:.0%} -> {worst['to_score']:.0%} "
+                          f"between frames {worst['from_frame']} and {worst['to_frame']} "
+                          f"({worst['from_timestamp']} -> {worst['to_timestamp']}).",
+            })
+
+        # Persistent high-score streaks
+        streaks = inter_frame.get("high_streaks", [])
+        if streaks:
+            longest = max(streaks, key=lambda s: s["length"])
+            findings.append({
+                "description": f"{len(streaks)} persistent manipulation signal streak(s) detected.",
+                "severity": "critical" if longest["length"] >= 4 else "warning",
+                "detail": f"Longest streak: {longest['length']} consecutive frames "
+                          f"from {longest['start_time']} to {longest['end_time']} "
+                          f"(avg score: {longest['avg_score']:.0%}).",
+            })
+
+    # 6. Face boundary issues
     if all_face_analyses:
         high_faces = [f for f in all_face_analyses if f["fake_prob"] >= 0.50]
         if high_faces:
@@ -542,8 +782,7 @@ def _generate_video_findings(
                 "severity": "warning",
             })
 
-    # 5. Overall assessment
-    max_score = max(frame_scores)
+    # 7. Overall assessment
     avg_score = sum(frame_scores) / len(frame_scores)
     if avg_score < 0.25:
         findings.append({
@@ -551,7 +790,7 @@ def _generate_video_findings(
             "severity": "info",
         })
 
-    # 6. Always include disclaimer
+    # 8. Always include disclaimer
     findings.append({
         "description": "AI analysis is probabilistic — scores indicate likelihood, not certainty.",
         "severity": "info",
@@ -626,7 +865,7 @@ def _build_result(
         "findings": findings,
         "media_info": media_info,
         "file_hash": "",
-        "model": "EfficientNet-B2 (Custom)",
+        "model": "EfficientNet-B2 (Celeb-DF)",
         "model_version": "2.0.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "frame_results": frame_results_for_flutter,
@@ -641,6 +880,17 @@ def _build_result(
             "face": risk_score,
         },
         "aggregation": aggregation or {},
+        "temporal_analysis": {
+            "optical_flow": {
+                "mean_magnitude": aggregation.get("flow_mean_magnitude", 0) if aggregation else 0,
+                "flicker_score": aggregation.get("flow_flicker_score", 0) if aggregation else 0,
+                "boundary_spikes": aggregation.get("flow_boundary_spikes", 0) if aggregation else 0,
+            },
+            "inter_frame": {
+                "max_jump": aggregation.get("inter_frame_max_jump", 0) if aggregation else 0,
+                "avg_jump": aggregation.get("inter_frame_avg_jump", 0) if aggregation else 0,
+            },
+        },
     }
 
 

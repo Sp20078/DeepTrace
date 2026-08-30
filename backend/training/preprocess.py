@@ -121,10 +121,10 @@ def get_face_detector(detector_type: str = "mtcnn"):
                 thresholds=[0.9, 0.9, 0.9],
                 post_process=True,
             )
-            print("✓ MTCNN face detector initialized")
+            print("[OK] MTCNN face detector initialized")
             return detector, "mtcnn"
         except ImportError:
-            print("⚠ MTCNN not available. Install facenet-pytorch:")
+            print("[WARN] MTCNN not available. Install facenet-pytorch:")
             print("  pip install facenet-pytorch")
             print("  Falling back to Haar cascades...")
 
@@ -132,7 +132,7 @@ def get_face_detector(detector_type: str = "mtcnn"):
     cascade = cv2.CascadeClassifier(
         str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml")
     )
-    print("✓ Haar cascade face detector initialized (fallback)")
+    print("[OK] Haar cascade face detector initialized (fallback)")
     return cascade, "haar"
 
 
@@ -164,7 +164,7 @@ def process_directory(
     for class_name, out_dir in [("real", output_real), ("fake", output_fake)]:
         src_dir = real_dir if class_name == "real" else fake_dir
         if not src_dir.exists():
-            print(f"⚠ Directory not found: {src_dir}")
+            print(f"[!] Directory not found: {src_dir}")
             continue
 
         extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff"}
@@ -211,7 +211,7 @@ def process_directory(
                 stats[class_name]["skipped"] += 1
                 continue
 
-        print(f"  ✓ {class_name}: {stats[class_name]['processed']} processed, "
+        print(f"  [OK] {class_name}: {stats[class_name]['processed']} processed, "
               f"{stats[class_name]['faces']} faces extracted, "
               f"{stats[class_name]['skipped']} skipped")
 
@@ -237,7 +237,7 @@ def split_data(raw_dir: Path, output_dir: Path, seed: int = RANDOM_SEED):
         class_images[class_name] = images
 
     if len(class_images) < 2:
-        print("  ⚠ Need both real/ and fake/ directories to create balanced splits")
+        print("  [!] Need both real/ and fake/ directories to create balanced splits")
         return
 
     real_imgs = class_images.get("real", [])
@@ -296,7 +296,7 @@ def main():
     output_dir = Path(args.output) if args.output else input_dir / "processed"
 
     if not input_dir.exists():
-        print(f"✗ Input directory not found: {input_dir}")
+        print(f"[ERROR] Input directory not found: {input_dir}")
         sys.exit(1)
 
     print(f"\n{'='*50}")
@@ -317,10 +317,10 @@ def main():
     )
 
     total = sum(s["faces"] for s in stats.values())
-    print(f"\n✓ Total faces extracted: {total}")
+    print(f"\n[OK] Total faces extracted: {total}")
 
     if total == 0:
-        print("\n✗ No faces found in any images. Check your input directory.")
+        print("\n[ERROR] No faces found in any images. Check your input directory.")
         sys.exit(1)
 
     # Step 2: Split into train/val/test
