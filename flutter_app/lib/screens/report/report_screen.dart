@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/layout/responsive_wrapper.dart';
@@ -19,6 +23,7 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   bool _showConfetti = false;
+  bool _isGenerating = false;
 
   @override
   Widget build(BuildContext context) {
@@ -109,9 +114,9 @@ class _ReportScreenState extends State<ReportScreen> {
                       const SizedBox(height: 28),
 
                       PrimaryButton(
-                        label: 'Generate Report',
-                        icon: Icons.file_download_rounded,
-                        onPressed: _onGenerateReport,
+                        label: _isGenerating ? 'Generating...' : 'Generate Report',
+                        icon: _isGenerating ? Icons.hourglass_top_rounded : Icons.file_download_rounded,
+                        onPressed: _isGenerating ? null : () => _onGenerateReport(),
                       ),
                       const SizedBox(height: 32),
                     ],
@@ -133,28 +138,114 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  void _onGenerateReport() {
+  Future<void> _onGenerateReport() async {
+    if (_isGenerating) return;
+    
+    setState(() => _isGenerating = true);
     HapticFeedback.mediumImpact();
-    setState(() => _showConfetti = true);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final result = widget.analysisResult!;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Text('Report generated successfully!',
-                style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
-          ],
+    try {
+      // Show loading snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Text('Generating PDF report...',
+                  style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
+            ],
+          ),
+          backgroundColor: isDark ? AppColors.primary : AppColorsLight.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 30),
         ),
-        backgroundColor: isDark ? AppColors.success : AppColorsLight.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+      );
+
+      // Download PDF from backend
+      final reportUrl = ApiService.getReportUrl(result.analysisId);
+      final response = await http.get(Uri.parse(reportUrl)).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('Timeout generating report'),
+      );
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (response.statusCode == 200) {
+        // Save to file
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/DeepTrace_Report_${result.analysisId.substring(0, 12)}.pdf');
+        await file.writeAsBytes(response.bodyBytes);
+
+        // Show success with confetti
+        setState(() => _showConfetti = true);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Report generated!',
+                          style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
+                      Text('Saved to: ${file.path}',
+                          style: AppTheme.bodySmall.copyWith(color: Colors.white70, fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: isDark ? AppColors.success : AppColorsLight.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OPEN',
+              textColor: Colors.white,
+              onPressed: () => OpenFile.open(file.path),
+            ),
+          ),
+        );
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Text('Failed to generate report',
+                  style: AppTheme.bodyMedium.copyWith(color: Colors.white)),
+            ],
+          ),
+          backgroundColor: isDark ? AppColors.highRisk : AppColorsLight.highRisk,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
   }
 
   Widget _buildReportHeader(BuildContext context, AnalysisResult result) {

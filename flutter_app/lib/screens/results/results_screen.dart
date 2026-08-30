@@ -118,11 +118,6 @@ class ResultsScreen extends StatelessWidget {
                       '${analysisResult.riskScore} / 100', riskColor),
                   const SizedBox(height: 10),
 
-                  // Prediction
-                  _buildMetricRow(context, 'Prediction',
-                      analysisResult.prediction, riskColor),
-                  const SizedBox(height: 10),
-
                   // Faces detected
                   _buildMetricRow(context, 'Faces Detected',
                       '${analysisResult.facesDetected}', textSecondary),

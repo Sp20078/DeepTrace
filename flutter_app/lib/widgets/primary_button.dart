@@ -4,7 +4,7 @@ import '../core/theme/app_theme.dart';
 
 class PrimaryButton extends StatefulWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final IconData? icon;
   final bool isOutlined;
   final bool isSmall;
@@ -12,7 +12,7 @@ class PrimaryButton extends StatefulWidget {
   const PrimaryButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     this.icon,
     this.isOutlined = false,
     this.isSmall = false,
@@ -53,6 +53,7 @@ class _PrimaryButtonState extends State<PrimaryButton>
     final primary = isDark ? AppColors.primary : AppColorsLight.primary;
     final primaryDark = isDark ? AppColors.primaryDark : AppColorsLight.primaryDark;
     final primaryLight = isDark ? AppColors.primaryLight : AppColorsLight.primaryLight;
+    final isDisabled = widget.onPressed == null;
     final bgColor = widget.isOutlined ? Colors.transparent : primary;
     final fgColor = widget.isOutlined ? primary : Colors.white;
     final borderColor = widget.isOutlined ? primary : Colors.transparent;
@@ -61,17 +62,17 @@ class _PrimaryButtonState extends State<PrimaryButton>
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTapDown: (_) {
+        onTapDown: isDisabled ? null : (_) {
           HapticFeedback.lightImpact();
           _pressController.forward();
           setState(() => _isPressed = true);
         },
-        onTapUp: (_) {
+        onTapUp: isDisabled ? null : (_) {
           _pressController.reverse();
           setState(() => _isPressed = false);
-          widget.onPressed();
+          widget.onPressed?.call();
         },
-        onTapCancel: () {
+        onTapCancel: isDisabled ? null : () {
           _pressController.reverse();
           setState(() => _isPressed = false);
         },
@@ -90,7 +91,9 @@ class _PrimaryButtonState extends State<PrimaryButton>
               horizontal: widget.isSmall ? 16 : 24,
             ),
             decoration: BoxDecoration(
-              color: _isHovered && !widget.isOutlined ? primaryDark : bgColor,
+              color: isDisabled
+                  ? Colors.grey.withOpacity(0.3)
+                  : (_isHovered && !widget.isOutlined ? primaryDark : bgColor),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _isHovered ? primaryLight : borderColor,
@@ -119,7 +122,7 @@ class _PrimaryButtonState extends State<PrimaryButton>
                   Icon(
                     widget.icon,
                     size: widget.isSmall ? 16 : 20,
-                    color: fgColor,
+                    color: isDisabled ? Colors.grey : fgColor,
                   ),
                   SizedBox(width: widget.isSmall ? 6 : 8),
                 ],
@@ -128,7 +131,7 @@ class _PrimaryButtonState extends State<PrimaryButton>
                   style:
                       (widget.isSmall ? AppTheme.labelLarge : AppTheme.subtitleMedium)
                           .copyWith(
-                    color: fgColor,
+                    color: isDisabled ? Colors.grey : fgColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

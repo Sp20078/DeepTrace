@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.analyze import router as analyze_router
+from routers.history import router as history_router
 
 app = FastAPI(
     title="DeepTrace API",
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(analyze_router)
+app.include_router(history_router)
 
 
 @app.get("/", tags=["General"])

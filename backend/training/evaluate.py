@@ -253,34 +253,56 @@ def main():
 
     device = args.device or cfg.DEVICE
 
-    # Load model
+    # Load model — auto-detect architecture from checkpoint
     print("\nLoading model...")
-    model = models.efficientnet_b2(weights=None)
-    num_features = model.classifier[1].in_features
-    model.classifier = nn.Sequential(
-        nn.Dropout(p=0.3, inplace=True),
-        nn.Linear(num_features, 256),
-        nn.ReLU(inplace=True),
-        nn.Dropout(p=0.2),
-        nn.Linear(256, NUM_CLASSES),
-    )
-
-    ckpt_path = args.checkpoint or str(WEIGHTS_DIR / "efficientnet_b2_deeptrace_best.pth")
-    if not Path(ckpt_path).exists():
-        # Try final
-        ckpt_path = str(WEIGHTS_DIR / "efficientnet_b2_deeptrace_final.pth")
-
-    if Path(ckpt_path).exists():
-        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-        model.load_state_dict(ckpt["model_state_dict"])
-        print(f"  Loaded: {ckpt_path}")
-        if "config" in ckpt:
-            print(f"  Training date: {ckpt['config'].get('training_date', 'N/A')}")
-            print(f"  Test accuracy at training: {ckpt['config'].get('test_accuracy', 'N/A')}")
-    else:
-        print(f"  ✗ No checkpoint found at {ckpt_path}")
+    
+    ckpt_path = args.checkpoint
+    if not ckpt_path:
+        # Try ViT first, then EfficientNet
+        for name in ["vit_b_16_deeptrace_best.pth", "vit_b_16_deeptrace_final.pth",
+                     "efficientnet_b2_deeptrace_best.pth", "efficientnet_b2_deeptrace_final.pth"]:
+            candidate = WEIGHTS_DIR / name
+            if candidate.exists():
+                ckpt_path = str(candidate)
+                break
+    
+    if not ckpt_path or not Path(ckpt_path).exists():
+        print(f"  ✗ No checkpoint found")
         print(f"    Train the model first: python -m training.train --data <processed_dir>")
         sys.exit(1)
+    
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    state_dict = ckpt.get("model_state_dict", ckpt)
+    config = ckpt.get("config", {})
+    arch = config.get("architecture", "efficientnet_b2").lower()
+    
+    print(f"  Checkpoint: {ckpt_path}")
+    print(f"  Architecture: {arch}")
+    if "config" in ckpt:
+        print(f"  Training date: {ckpt['config'].get('training_date', 'N/A')}")
+        print(f"  Test accuracy at training: {ckpt['config'].get('test_accuracy', 'N/A')}")
+    
+    # Build model based on architecture
+    if arch.startswith("vit"):
+        from services.model import ViTClassifier, create_classifier
+        model = create_classifier(arch)
+    else:
+        model = models.efficientnet_b2(weights=None)
+        num_features = model.classifier[1].in_features
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.3, inplace=True),
+            nn.Linear(num_features, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(256, NUM_CLASSES),
+        )
+    
+    try:
+        model.load_state_dict(state_dict, strict=True)
+    except RuntimeError:
+        # Try with backbone prefix
+        prefixed = {("backbone." + k): v for k, v in state_dict.items()}
+        model.load_state_dict(prefixed, strict=True)
 
     model = model.to(device)
 

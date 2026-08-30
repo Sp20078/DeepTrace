@@ -89,6 +89,92 @@ class AnalysisResult {
   bool get isLowRisk => score < 35;
 }
 
+/// History item from the API.
+class HistoryItem {
+  final String analysisId;
+  final String filename;
+  final String mediaType;
+  final String mediaCategory;
+  final String prediction;
+  final int riskScore;
+  final String riskLevel;
+  final int facesDetected;
+  final int framesAnalyzed;
+  final String timestamp;
+  final String model;
+
+  HistoryItem({
+    required this.analysisId,
+    required this.filename,
+    required this.mediaType,
+    required this.mediaCategory,
+    required this.prediction,
+    required this.riskScore,
+    required this.riskLevel,
+    required this.facesDetected,
+    required this.framesAnalyzed,
+    required this.timestamp,
+    required this.model,
+  });
+
+  factory HistoryItem.fromJson(Map<String, dynamic> json) {
+    return HistoryItem(
+      analysisId: json['analysis_id'] ?? '',
+      filename: json['filename'] ?? '',
+      mediaType: json['media_type'] ?? '',
+      mediaCategory: json['media_category'] ?? 'image',
+      prediction: json['prediction'] ?? '',
+      riskScore: json['risk_score'] ?? 0,
+      riskLevel: json['risk_level'] ?? 'MINIMAL',
+      facesDetected: json['faces_detected'] ?? 0,
+      framesAnalyzed: json['frames_analyzed'] ?? 0,
+      timestamp: json['timestamp'] ?? '',
+      model: json['model'] ?? '',
+    );
+  }
+
+  DateTime? get dateTime {
+    try {
+      return DateTime.parse(timestamp);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get formattedDate {
+    final dt = dateTime;
+    if (dt == null) return timestamp;
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  String get mediaTypeLabel => mediaCategory == 'video' ? 'Video' : 'Image';
+}
+
+/// History statistics from the API.
+class HistoryStats {
+  final int total;
+  final int highRisk;
+  final int mediumRisk;
+  final int lowRisk;
+
+  HistoryStats({
+    required this.total,
+    required this.highRisk,
+    required this.mediumRisk,
+    required this.lowRisk,
+  });
+
+  factory HistoryStats.fromJson(Map<String, dynamic> json) {
+    return HistoryStats(
+      total: json['total'] ?? 0,
+      highRisk: json['high_risk'] ?? 0,
+      mediumRisk: json['medium_risk'] ?? 0,
+      lowRisk: json['low_risk'] ?? 0,
+    );
+  }
+}
+
 /// API service for communicating with the DeepTrace backend.
 class ApiService {
   /// Analyze a media file — accepts Uint8List bytes (works on web + mobile).
@@ -119,6 +205,42 @@ class ApiService {
         statusCode: response.statusCode,
       );
     }
+  }
+
+  /// Get analysis history.
+  static Future<List<HistoryItem>> getHistory({int limit = 50}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/history?limit=$limit'))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List<dynamic> items = json['history'] ?? [];
+        return items.map((item) => HistoryItem.fromJson(item)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Get history statistics.
+  static Future<HistoryStats> getHistoryStats() async {
+    try {
+      final response = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/history/stats'))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return HistoryStats.fromJson(json);
+      }
+    } catch (_) {}
+    return HistoryStats(total: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0);
+  }
+
+  /// Get PDF report download URL.
+  static String getReportUrl(String analysisId) {
+    return '${ApiConfig.baseUrl}/history/$analysisId/report';
   }
 
   /// Check if the backend server is reachable.

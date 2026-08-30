@@ -651,8 +651,18 @@ async def run_analysis(file_path: str, media_type: str, filename: str = "") -> d
     Main entry point called by the router.
     Routes to image or video analysis.
     """
+    from services.history import save_analysis
+    
     is_video = media_type and media_type.startswith("video")
     if is_video:
-        return analyze_video(file_path, filename=filename)
+        result = analyze_video(file_path, filename=filename)
     else:
-        return analyze_image(file_path, filename=filename)
+        result = analyze_image(file_path, filename=filename)
+    
+    # Save to history
+    try:
+        save_analysis(result)
+    except Exception as e:
+        logger.warning("Failed to save to history: %s", e)
+    
+    return result
